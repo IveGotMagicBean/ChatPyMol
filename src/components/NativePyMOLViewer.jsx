@@ -30,6 +30,7 @@ const PYMOL_WHEEL =
   "/pymol-wasm/pymol-2.6.0a0-cp39-cp39-emscripten_3_1_46_wasm32.whl";
 const NATIVE_GUI_CONTROL_SIZE = 20;
 const NATIVE_LOG = "/chatpymol-native-actions.pml";
+const SEQUENCE_PREFERENCE_VERSION = "2";
 const MANAGED_VIEW_RE =
   /\n*# @chatpymol view-begin[\s\S]*?# @chatpymol view-end\n?/g;
 
@@ -253,9 +254,7 @@ export function NativePyMOLViewer({
   const viewCaptureTimerRef = useRef(0);
   const feedbackTimerRef = useRef(0);
   const commandInputRef = useRef(null);
-  const sequenceVisibleRef = useRef(
-    readPreference("chatpymol.sequence-view", "off") === "on"
-  );
+  const sequenceVisibleRef = useRef(readInitialSequencePreference());
   const selectionModeRef = useRef(
     normalizeSelectionMode(
       Number(readPreference("chatpymol.selection-mode", "1"))
@@ -407,8 +406,13 @@ chatpymol_reserved_width = chatpymol_gui_width
 _p.cmd.set("internal_gui", 1)
 _p.cmd.set("internal_gui_width", chatpymol_gui_width)
 _p.cmd.set("internal_gui_control_size", ${NATIVE_GUI_CONTROL_SIZE})
+_p.cmd.set("internal_gui_mode", 0)
 _p.cmd.set("seq_view", 1 if chatpymol_sequence_visible else 0)
 _p.cmd.set("mouse_grid", 0)
+try:
+    _p.reshape(chatpymol_width, chatpymol_height, 1)
+except Exception:
+    pass
 _p._cmd.glViewport(0, 0, chatpymol_width, chatpymol_height)
 _p.cmd.viewport(max(1, chatpymol_width-chatpymol_reserved_width), chatpymol_height)
 try:
@@ -536,6 +540,10 @@ except Exception:
     pass
 _p.cmd.set_color("chatpymol_canvas_bg", [0.035, 0.043, 0.058])
 _p.cmd.bg_color("chatpymol_canvas_bg")
+try:
+    _p.reshape(chatpymol_width, chatpymol_height, 1)
+except Exception:
+    pass
 `);
         runtimeRef.current = pyodide;
         setRuntimeReady(true);
@@ -629,6 +637,12 @@ chatpymol_reserved_width = chatpymol_gui_width
 _p.cmd.set("internal_gui", 1)
 _p.cmd.set("internal_gui_width", chatpymol_gui_width)
 _p.cmd.set("internal_gui_control_size", ${NATIVE_GUI_CONTROL_SIZE})
+_p.cmd.set("internal_gui_mode", 0)
+_p.cmd.set("seq_view", 1 if chatpymol_sequence_visible else 0)
+try:
+    _p.reshape(chatpymol_width, chatpymol_height, 1)
+except Exception:
+    pass
 _p._cmd.glViewport(0, 0, chatpymol_width, chatpymol_height)
 _p.cmd.viewport(max(1, chatpymol_width-chatpymol_reserved_width), chatpymol_height)
 _p.idle()
@@ -637,6 +651,7 @@ json.dumps(chatpymol_incremental_warnings)
 `);
           commandWarnings = JSON.parse(String(encodedWarnings || "[]"));
         });
+        await applyViewerChrome(sequenceVisibleRef.current);
         if (cancelled || requestId !== sceneRequestRef.current) return;
         if (commandWarnings.length) {
           throw new Error(commandWarnings[0].error || "增量命令执行失败");
@@ -746,8 +761,13 @@ chatpymol_reserved_width = chatpymol_gui_width
 _p.cmd.set("internal_gui", 1)
 _p.cmd.set("internal_gui_width", chatpymol_gui_width)
 _p.cmd.set("internal_gui_control_size", ${NATIVE_GUI_CONTROL_SIZE})
+_p.cmd.set("internal_gui_mode", 0)
 _p.cmd.set("seq_view", 1 if chatpymol_sequence_visible else 0)
 _p.cmd.set("mouse_grid", 0)
+try:
+    _p.reshape(chatpymol_width, chatpymol_height, 1)
+except Exception:
+    pass
 _p._cmd.glViewport(0, 0, chatpymol_width, chatpymol_height)
 _p.cmd.viewport(max(1, chatpymol_width-chatpymol_reserved_width), chatpymol_height)
 try:
@@ -769,6 +789,10 @@ json.dumps(chatpymol_command_warnings)
           renderWarningsRef.current = commandWarnings;
           logOffsetRef.current = 0;
         });
+        // PyMOL-WASM lazily paints the classic internal GUI. A second,
+        // separate runtime turn is required here; drawing it inside the scene
+        // replay call leaves only the reserved white strip until first input.
+        await applyViewerChrome(sequenceVisibleRef.current);
         if (cancelled || requestId !== sceneRequestRef.current) return;
         appliedPmlRef.current = pml;
         loadedSceneKeyRef.current = nextSceneKey;
@@ -828,6 +852,7 @@ json.dumps(chatpymol_command_warnings)
     };
   }, [
     api,
+    applyViewerChrome,
     enqueue,
     language,
     pml,
@@ -1134,6 +1159,12 @@ chatpymol_reserved_width = chatpymol_gui_width
 _p.cmd.set("internal_gui", 1)
 _p.cmd.set("internal_gui_width", chatpymol_gui_width)
 _p.cmd.set("internal_gui_control_size", ${NATIVE_GUI_CONTROL_SIZE})
+_p.cmd.set("internal_gui_mode", 0)
+_p.cmd.set("seq_view", 1 if chatpymol_sequence_visible else 0)
+try:
+    _p.reshape(chatpymol_width, chatpymol_height, 1)
+except Exception:
+    pass
 _p._cmd.glViewport(0, 0, chatpymol_width, chatpymol_height)
 _p.cmd.viewport(max(1, chatpymol_width-chatpymol_reserved_width), chatpymol_height)
 _p.idle()
@@ -1932,6 +1963,22 @@ function readPreference(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function readInitialSequencePreference() {
+  const preferenceVersion = readPreference(
+    "chatpymol.sequence-preference-version",
+    ""
+  );
+  if (preferenceVersion !== SEQUENCE_PREFERENCE_VERSION) {
+    writePreference("chatpymol.sequence-view", "on");
+    writePreference(
+      "chatpymol.sequence-preference-version",
+      SEQUENCE_PREFERENCE_VERSION
+    );
+    return true;
+  }
+  return readPreference("chatpymol.sequence-view", "on") !== "off";
 }
 
 function writePreference(key, value) {

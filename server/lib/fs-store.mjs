@@ -240,7 +240,7 @@ export class FileStore {
     await this.appendMessage(token, projectId, {
       role: "assistant",
       content:
-        "欢迎来到 ChatPyMOL。你可以上传本地 PDB/mmCIF、输入 PDB ID 从 RCSB 自动获取，或从推荐蛋白中直接开始。之后既可以在右侧编辑 PML，也可以告诉我如何改颜色、显示配体、比较或合并结构；每一步都会自动保存为可回退的版本。",
+        "欢迎来到 ChatPyMOL。你可以上传本地 PDB/mmCIF、输入 PDB ID 自动获取结构，或直接用自然语言开始。右侧支持完整的 PyMOL 原生交互；AI 与人工操作会共同保存为可回退的版本。",
       mode: "system"
     });
   }

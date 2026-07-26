@@ -22,8 +22,10 @@ await context.addInitScript(({ deviceToken }) => {
   localStorage.setItem("chatpymol.device-token.v1", deviceToken);
   localStorage.setItem("chatpymol.theme", "light");
   localStorage.setItem("chatpymol.language", "zh");
+  // Simulate preferences left by the earlier UI. The current UI must migrate
+  // both values so the sequence and classic controls are actually legible.
   localStorage.setItem("chatpymol.sequence-view", "off");
-  localStorage.setItem("chatpymol.right-width", "640");
+  localStorage.setItem("chatpymol.right-width", "180");
 }, { deviceToken: token });
 
 const page = await context.newPage();
@@ -64,7 +66,7 @@ if ((await pymolToolbar.getByText(/^v\d+$/).count()) !== 1) {
 if (
   (await pymolToolbar.getByLabel("撤销").count()) !== 1 ||
   (await pymolToolbar.getByLabel("重做").count()) !== 1 ||
-  (await pymolToolbar.getByLabel("显示序列").count()) !== 1
+  (await pymolToolbar.getByLabel("隐藏序列").count()) !== 1
 ) {
   throw new Error("Version, undo/redo, or sequence controls are misplaced or duplicated");
 }
@@ -89,13 +91,13 @@ await pymolToolbar.locator(".native-export-trigger").click();
 
 const githubLink = page.getByLabel("GitHub", { exact: true });
 const issueLink = page.getByLabel("提交 Issue", { exact: true });
-const emailLink = page.getByLabel("邮件联系", { exact: true });
+const emailButton = page.getByLabel("邮件联系", { exact: true });
 if (
   (await githubLink.getAttribute("href")) !==
     "https://github.com/IveGotMagicBean/ChatPyMol" ||
   (await issueLink.getAttribute("href")) !==
     "https://github.com/IveGotMagicBean/ChatPyMol/issues/new?template=suggestion.yml" ||
-  (await emailLink.getAttribute("href")) !== "mailto:542058929@qq.com"
+  (await emailButton.count()) !== 1
 ) {
   throw new Error("GitHub, Issue, or email link is incorrect");
 }
@@ -108,8 +110,57 @@ for (const externalLink of [githubLink, issueLink]) {
     throw new Error("External repository links must open safely in a new tab");
   }
 }
+await emailButton.click();
+const contactDialog = page.getByRole("dialog", { name: "联系 ChatPyMOL" });
+await contactDialog.waitFor();
+if (
+  (await contactDialog.getByRole("link", { name: "542058929@qq.com" })
+    .getAttribute("href")) !== "mailto:542058929@qq.com" ||
+  (await contactDialog.getByRole("button", { name: "复制邮箱地址" }).count()) !== 1
+) {
+  throw new Error("The email popover or copy action is incorrect");
+}
+await page.keyboard.press("Escape");
+await contactDialog.waitFor({ state: "detached" });
 
 const canvas = page.locator(".native-pymol-canvas-shell canvas");
+const rightPanelWidth = await page.locator(".clean-right-panel").evaluate(
+  (element) => element.getBoundingClientRect().width
+);
+if (rightPanelWidth < 440) {
+  throw new Error(`Legacy right-panel width was not migrated: ${rightPanelWidth}`);
+}
+const migratedPreferences = await page.evaluate(() => ({
+  rightWidth: Number(localStorage.getItem("chatpymol.right-width")),
+  sequence: localStorage.getItem("chatpymol.sequence-view"),
+  sequenceVersion: localStorage.getItem(
+    "chatpymol.sequence-preference-version"
+  )
+}));
+if (
+  migratedPreferences.rightWidth < 440 ||
+  migratedPreferences.sequence !== "on" ||
+  migratedPreferences.sequenceVersion !== "2"
+) {
+  throw new Error(
+    `Legacy viewer preferences were not migrated: ${JSON.stringify(migratedPreferences)}`
+  );
+}
+const visualBeforeFileCard = await canvasVisualMetrics(page, canvas);
+assertMoleculeAndNativePanel(visualBeforeFileCard, "initial scene");
+const exampleFileCard = page.locator(".message-structure-card", {
+  hasText: "1AKI.pdb"
+}).first();
+if ((await exampleFileCard.count()) !== 1) {
+  throw new Error("The default example PDB file card is missing");
+}
+await exampleFileCard.click();
+await page.waitForTimeout(350);
+if (await page.locator(".clean-scene-statusbar.history").count()) {
+  throw new Error("Clicking a PDB file card unexpectedly entered history mode");
+}
+const visualAfterFileCard = await canvasVisualMetrics(page, canvas);
+assertMoleculeAndNativePanel(visualAfterFileCard, "after PDB file card");
 await assertNoReplacementPanel(page, "initial load");
 const backingBefore = await canvas.evaluate((element) => [
   element.width,
@@ -124,9 +175,10 @@ await page.screenshot({
   path: "artifacts/native-hybrid-native-default.png",
   fullPage: true
 });
+await page.getByLabel("隐藏序列").click();
+await page.getByLabel("显示序列").waitFor();
 await page.getByLabel("显示序列").click();
 await page.getByLabel("隐藏序列").waitFor();
-await page.getByLabel("隐藏序列").click();
 await assertClassicNativePanelInteractive(page, canvas, "after sequence toggle");
 
 const handle = await page.getByRole("separator", {
@@ -202,6 +254,10 @@ if (failedRequests.length) {
 
 console.log(JSON.stringify({
   token,
+  rightPanelWidth,
+  migratedPreferences,
+  visualBeforeFileCard,
+  visualAfterFileCard,
   backingBefore,
   backingAfter,
   persistedRevision: persistedWorkspace.version.revision,
@@ -213,6 +269,70 @@ console.log(JSON.stringify({
 
 await context.close();
 await browser.close();
+
+async function canvasVisualMetrics(page, canvas) {
+  const screenshot = await canvas.screenshot({ animations: "disabled" });
+  const source = `data:image/png;base64,${screenshot.toString("base64")}`;
+  return page.evaluate(async (imageSource) => {
+    const image = new Image();
+    image.src = imageSource;
+    await image.decode();
+    const sample = document.createElement("canvas");
+    sample.width = image.naturalWidth;
+    sample.height = image.naturalHeight;
+    const context = sample.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(
+      0,
+      0,
+      sample.width,
+      sample.height
+    ).data;
+    const panelStart = Math.floor(sample.width * 0.66);
+    const sideColors = new Set();
+    let sideNonWhite = 0;
+    let mainColored = 0;
+    for (let y = 0; y < sample.height; y += 1) {
+      for (let x = 0; x < sample.width; x += 1) {
+        const offset = (y * sample.width + x) * 4;
+        const red = pixels[offset];
+        const green = pixels[offset + 1];
+        const blue = pixels[offset + 2];
+        if (x >= panelStart) {
+          if (red < 245 || green < 245 || blue < 245) sideNonWhite += 1;
+          if (sideColors.size < 512) {
+            sideColors.add(`${red >> 3}:${green >> 3}:${blue >> 3}`);
+          }
+        } else if (
+          Math.max(red, green, blue) - Math.min(red, green, blue) > 18 &&
+          Math.max(red, green, blue) > 45
+        ) {
+          mainColored += 1;
+        }
+      }
+    }
+    return {
+      width: sample.width,
+      height: sample.height,
+      sideNonWhite,
+      sideColorBuckets: sideColors.size,
+      mainColored
+    };
+  }, source);
+}
+
+function assertMoleculeAndNativePanel(metrics, phase) {
+  if (metrics.sideNonWhite < 1_000 || metrics.sideColorBuckets < 12) {
+    throw new Error(
+      `Classic native panel was not painted during ${phase}: ${JSON.stringify(metrics)}`
+    );
+  }
+  if (metrics.mainColored < 500) {
+    throw new Error(
+      `The molecule disappeared during ${phase}: ${JSON.stringify(metrics)}`
+    );
+  }
+}
 
 async function assertNoReplacementPanel(page, phase) {
   const customObjectPanels = await page.locator(".native-object-panel").count();

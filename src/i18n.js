@@ -11,8 +11,18 @@ const EN = {
   "切换亮色或暗色": "Switch light or dark theme",
   "提交 Issue": "Open an issue",
   "邮件联系": "Email us",
+  "联系 ChatPyMOL": "Contact ChatPyMOL",
+  "欢迎交流使用体验与合作想法":
+    "We welcome feedback, questions, and collaboration ideas",
+  "复制邮箱地址": "Copy email address",
+  "复制": "Copy",
+  "已复制": "Copied",
+  "复制失败": "Copy failed",
+  "AI 与人工协作的分子可视化工作台":
+    "An AI-human workspace for molecular visualization",
   "新建对话": "New chat",
   "新对话": "New chat",
+  "示例对话": "Example conversation",
   "对话菜单": "Conversation menu",
   "有来自 CLI 的新版本": "New version from CLI",
   "重命名": "Rename",

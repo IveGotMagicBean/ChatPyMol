@@ -1,6 +1,7 @@
 import {
   Bot,
-  CircleDot,
+  Check,
+  Copy,
   FileBox,
   Github,
   History,
@@ -8,6 +9,7 @@ import {
   LoaderCircle,
   Mail,
   Menu,
+  MessageSquarePlus,
   Moon,
   MoreHorizontal,
   PanelRight,
@@ -67,7 +69,10 @@ export function AppClean() {
     () => Number(localStorage.getItem("chatpymol.left-width")) || 260
   );
   const [rightWidth, setRightWidth] = useState(
-    () => Number(localStorage.getItem("chatpymol.right-width")) || 620
+    () => {
+      const stored = Number(localStorage.getItem("chatpymol.right-width"));
+      return Math.min(900, Math.max(440, stored || 620));
+    }
   );
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -84,6 +89,8 @@ export function AppClean() {
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [editingId, setEditingId] = useState(null);
   const [titleDraft, setTitleDraft] = useState("");
+  const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
+  const [emailCopyStatus, setEmailCopyStatus] = useState("idle");
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const renderTimerRef = useRef(null);
@@ -104,6 +111,10 @@ export function AppClean() {
   const queuedExternalUpdateRef = useRef(null);
   const scheduleExternalSyncRef = useRef(null);
   const pairCompletionCodeRef = useRef(null);
+  const emailPopoverRef = useRef(null);
+  const emailTriggerRef = useRef(null);
+  const emailCopyButtonRef = useRef(null);
+  const emailCopyTimerRef = useRef(null);
   const t = useMemo(() => createTranslator(language), [language]);
   function toggleConversationMenu(conversationId, event) {
     if (menuId === conversationId) {
@@ -329,13 +340,75 @@ export function AppClean() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [workspace?.messages?.length, busy]);
 
+  useEffect(() => {
+    if (!emailPopoverOpen) return undefined;
+
+    const closeOnOutsidePointer = (event) => {
+      if (
+        emailPopoverRef.current?.contains(event.target) ||
+        emailTriggerRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+      setEmailPopoverOpen(false);
+      setEmailCopyStatus("idle");
+    };
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      setEmailPopoverOpen(false);
+      setEmailCopyStatus("idle");
+      emailTriggerRef.current?.focus();
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    const focusFrame = window.requestAnimationFrame(() => {
+      emailCopyButtonRef.current?.focus();
+    });
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.cancelAnimationFrame(focusFrame);
+    };
+  }, [emailPopoverOpen]);
+
   useEffect(
     () => () => {
       window.clearTimeout(renderTimerRef.current);
       window.clearTimeout(autoSaveTimerRef.current);
+      window.clearTimeout(emailCopyTimerRef.current);
     },
     []
   );
+
+  async function copyContactEmail() {
+    let copied = false;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText("542058929@qq.com");
+      copied = true;
+    } catch {
+      const input = document.createElement("textarea");
+      input.value = "542058929@qq.com";
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      try {
+        copied = document.execCommand("copy");
+      } catch {
+        copied = false;
+      }
+      input.remove();
+    }
+
+    setEmailCopyStatus(copied ? "copied" : "failed");
+    window.clearTimeout(emailCopyTimerRef.current);
+    emailCopyTimerRef.current = window.setTimeout(() => {
+      setEmailCopyStatus("idle");
+    }, 2200);
+  }
 
   const workspaceReady = Boolean(workspace?.project?.id);
   useEffect(() => {
@@ -1132,7 +1205,7 @@ export function AppClean() {
             <Menu size={18} />
           </button>
           <strong>ChatPyMOL</strong>
-          <span>{workspace.project.title}</span>
+          <span>{t("AI 与人工协作的分子可视化工作台")}</span>
         </div>
         <div className="clean-nav-actions">
           <button
@@ -1160,16 +1233,65 @@ export function AppClean() {
             aria-label={t("提交 Issue")}
             title={t("提交 Issue")}
           >
-            <CircleDot size={17} />
+            <MessageSquarePlus size={16} strokeWidth={1.7} />
           </a>
-          <a
-            className="icon-button"
-            href={EMAIL_URL}
-            aria-label={t("邮件联系")}
-            title={t("邮件联系")}
-          >
-            <Mail size={17} />
-          </a>
+          <div className="clean-contact-wrap">
+            <button
+              ref={emailTriggerRef}
+              className={`icon-button ${emailPopoverOpen ? "active" : ""}`}
+              type="button"
+              aria-label={t("邮件联系")}
+              aria-haspopup="dialog"
+              aria-expanded={emailPopoverOpen}
+              aria-controls="chatpymol-contact-popover"
+              title={t("邮件联系")}
+              onClick={() => {
+                setEmailPopoverOpen((open) => !open);
+                setEmailCopyStatus("idle");
+              }}
+            >
+              <Mail size={16} strokeWidth={1.7} />
+            </button>
+            {emailPopoverOpen && (
+              <section
+                ref={emailPopoverRef}
+                id="chatpymol-contact-popover"
+                className="clean-contact-popover"
+                role="dialog"
+                aria-labelledby="chatpymol-contact-title"
+              >
+                <div className="clean-contact-heading">
+                  <span id="chatpymol-contact-title">
+                    {t("联系 ChatPyMOL")}
+                  </span>
+                  <small>{t("欢迎交流使用体验与合作想法")}</small>
+                </div>
+                <div className="clean-contact-email-row">
+                  <a href={EMAIL_URL}>542058929@qq.com</a>
+                  <button
+                    ref={emailCopyButtonRef}
+                    type="button"
+                    className={`clean-contact-copy ${emailCopyStatus}`}
+                    onClick={copyContactEmail}
+                    aria-label={t("复制邮箱地址")}
+                  >
+                    {emailCopyStatus === "copied" ? (
+                      <Check size={14} aria-hidden="true" />
+                    ) : (
+                      <Copy size={14} aria-hidden="true" />
+                    )}
+                    <span aria-live="polite">
+                      {emailCopyStatus === "copied"
+                        ? t("已复制")
+                        : emailCopyStatus === "failed"
+                          ? t("复制失败")
+                          : t("复制")}
+                    </span>
+                  </button>
+                </div>
+              </section>
+            )}
+          </div>
           <button
             className="language-clean"
             onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
@@ -1243,7 +1365,7 @@ export function AppClean() {
                       onClick={() => switchConversation(conversation.id)}
                     >
                       {conversation.pinned && <Pin size={11} />}
-                      <span>{conversation.title}</span>
+                      <span>{t(conversation.title)}</span>
                       {unreadProjectIds.has(conversation.id) && (
                         <i
                           className="conversation-unread-dot"
@@ -1326,7 +1448,6 @@ export function AppClean() {
                           onClick={() => {
                             setSelectedStructureId(structure.id);
                             setRightCollapsed(false);
-                            if (message.versionId) openVersion(message.versionId);
                           }}
                         >
                           <span className="message-structure-icon">

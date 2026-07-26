@@ -130,6 +130,105 @@ body,
   gap: 2px;
 }
 
+.clean-contact-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.clean-contact-popover {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 284px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--clean-shadow);
+}
+
+.clean-contact-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.clean-contact-heading > span {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.clean-contact-heading small {
+  color: var(--quiet);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.clean-contact-email-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+  padding: 6px 6px 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-soft);
+}
+
+.clean-contact-email-row > a {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--accent-text);
+  font-size: 11.5px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clean-contact-email-row > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.clean-contact-copy {
+  display: inline-flex;
+  height: 27px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.clean-contact-copy:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+}
+
+.clean-contact-copy.copied {
+  background: var(--accent-cyan-soft);
+  color: var(--accent-cyan);
+}
+
+.clean-contact-copy.failed {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.clean-contact-copy:focus-visible,
+.clean-contact-email-row > a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: 2px;
+}
+
 .icon-button,
 .language-clean {
   display: inline-flex;

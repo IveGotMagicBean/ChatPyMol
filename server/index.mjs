@@ -182,16 +182,19 @@ app.post(
     const initial = await store.bootstrap(token);
     let workspace = initial;
     let exampleInjected = false;
+    const isFirstVisit =
+      initial.device.projects?.length === 1 &&
+      initial.device.createdAt === initial.device.lastSeenAt;
 
-    if (!workspace.structures.length) {
+    if (isFirstVisit && !workspace.structures.length) {
       const buffer = await readFile(path.join(root, "server/examples/1AKI.pdb"));
-      const added = await store.addStructure(token, workspace.project.id, {
+      await store.addStructure(token, workspace.project.id, {
         originalname: "1AKI.pdb",
         buffer,
         size: buffer.length
       });
       if (/^(?:新对话|未命名分子场景|New chat)/.test(workspace.project.title)) {
-        await store.renameProject(token, workspace.project.id, "溶菌酶示例 · 1AKI");
+        await store.renameProject(token, workspace.project.id, "示例对话");
       }
       workspace = await store.getWorkspace(token, workspace.project.id);
       exampleInjected = true;
@@ -203,6 +206,14 @@ app.post(
     const hasDemoConversation = workspace.messages.some(
       (message) => message.demoStep === "example-ready"
     );
+
+    if (
+      hasDemoConversation &&
+      /^(?:溶菌酶示例\s*·\s*1AKI|1AKI 示例)$/.test(workspace.project.title)
+    ) {
+      await store.renameProject(token, workspace.project.id, "示例对话");
+      workspace = await store.getWorkspace(token, workspace.project.id);
+    }
 
     if (example && !hasDemoConversation) {
       const versionId = workspace.version.id;
