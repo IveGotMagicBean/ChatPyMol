@@ -161,14 +161,6 @@ npm pack --dry-run
 
 GitHub Actions 会在每次 push 和 Pull Request 上执行测试与生产构建。
 
-本地服务已在 `8787` 端口启动时，可以录制一份带大字字幕的真实浏览器操作演示：
-
-```bash
-npm run record:tour
-```
-
-视频、封面、字幕时间轴和诊断信息会写入被 Git 忽略的 `artifacts/recording/`。
-
 ## 安全与贡献
 
 - 安全问题：[SECURITY.md](SECURITY.md)
