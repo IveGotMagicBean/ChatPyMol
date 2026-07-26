@@ -41,6 +41,7 @@ export class FileStore {
     this.root = path.resolve(root);
     this.onWorkspaceUpdated = onWorkspaceUpdated;
     this.projectLocks = new Map();
+    this.deviceLocks = new Map();
   }
 
   async init() {
@@ -65,7 +66,12 @@ export class FileStore {
     return path.join(this.deviceDir(token), "projects", projectId);
   }
 
-  async bootstrap(token) {
+  async bootstrap(token, options = {}) {
+    if (!options._deviceLockHeld) {
+      return this.withDeviceLock(token, () =>
+        this.bootstrap(token, { _deviceLockHeld: true })
+      );
+    }
     const deviceDir = this.deviceDir(token);
     const deviceFile = path.join(deviceDir, "device.json");
     const now = new Date().toISOString();
@@ -127,7 +133,12 @@ export class FileStore {
     };
   }
 
-  async activateProject(token, projectId) {
+  async activateProject(token, projectId, options = {}) {
+    if (!options._deviceLockHeld) {
+      return this.withDeviceLock(token, () =>
+        this.activateProject(token, projectId, { _deviceLockHeld: true })
+      );
+    }
     assertId(projectId, "project");
     const deviceFile = path.join(this.deviceDir(token), "device.json");
     const device = await readJson(deviceFile, null);
@@ -169,7 +180,12 @@ export class FileStore {
     return project;
   }
 
-  async deleteProject(token, projectId) {
+  async deleteProject(token, projectId, options = {}) {
+    if (!options._deviceLockHeld) {
+      return this.withDeviceLock(token, () =>
+        this.deleteProject(token, projectId, { _deviceLockHeld: true })
+      );
+    }
     assertId(projectId, "project");
     const deviceFile = path.join(this.deviceDir(token), "device.json");
     const device = await readJson(deviceFile, null);
@@ -189,13 +205,35 @@ export class FileStore {
     if (device.activeProjectId === projectId) {
       device.activeProjectId = remaining[0];
     }
-    device.lastSeenAt = new Date().toISOString();
+    const now = new Date().toISOString();
+    if (device.officialExample?.projectId === projectId) {
+      device.officialExample = {
+        ...device.officialExample,
+        status: "deleted",
+        projectId: null,
+        deletedAt: now
+      };
+    }
+    device.lastSeenAt = now;
     await writeJsonAtomic(deviceFile, device);
     await rm(this.projectDir(token, projectId), { recursive: true, force: true });
     return this.getWorkspace(token, device.activeProjectId);
   }
 
-  async createProject(token, title = "未命名分子场景") {
+  async createProject(
+    token,
+    title = "未命名分子场景",
+    options = {}
+  ) {
+    if (!options._deviceLockHeld) {
+      return this.withDeviceLock(token, () =>
+        this.createProject(token, title, {
+          ...options,
+          _deviceLockHeld: true
+        })
+      );
+    }
+    const { activate = true, officialExampleSchema = null } = options;
     const deviceDir = this.deviceDir(token);
     const deviceFile = path.join(deviceDir, "device.json");
     const device = await readJson(deviceFile, null);
@@ -207,10 +245,56 @@ export class FileStore {
     const projectId = `prj_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
     await this.createProjectFiles(token, projectId, cleanTitle(title));
     device.projects.push(projectId);
-    device.activeProjectId = projectId;
-    device.lastSeenAt = new Date().toISOString();
+    if (activate) device.activeProjectId = projectId;
+    const now = new Date().toISOString();
+    if (
+      officialExampleSchema !== null &&
+      Number.isFinite(Number(officialExampleSchema))
+    ) {
+      device.officialExample = {
+        schema: Number(officialExampleSchema),
+        status: "pending",
+        projectId,
+        installedAt: null,
+        deletedAt: null
+      };
+    }
+    device.lastSeenAt = now;
     await writeJsonAtomic(deviceFile, device);
     return this.getWorkspace(token, projectId);
+  }
+
+  async markOfficialExample(token, schema, projectId, options = {}) {
+    if (!options._deviceLockHeld) {
+      return this.withDeviceLock(token, () =>
+        this.markOfficialExample(token, schema, projectId, {
+          ...options,
+          _deviceLockHeld: true
+        })
+      );
+    }
+    const status = options.status === "pending" ? "pending" : "installed";
+    assertId(projectId, "project");
+    const deviceFile = path.join(this.deviceDir(token), "device.json");
+    const device = await readJson(deviceFile, null);
+    if (!device?.projects?.includes(projectId)) {
+      const error = new Error("示例对话不属于当前设备");
+      error.status = 404;
+      throw error;
+    }
+    const now = new Date().toISOString();
+    device.officialExample = {
+      schema: Number(schema),
+      status,
+      projectId,
+      installedAt:
+        status === "installed"
+          ? device.officialExample?.installedAt || now
+          : device.officialExample?.installedAt || null,
+      deletedAt: null
+    };
+    await writeJsonAtomic(deviceFile, device);
+    return device;
   }
 
   async createProjectFiles(token, projectId, title) {
@@ -616,6 +700,24 @@ export class FileStore {
     } finally {
       release();
       if (this.projectLocks.get(key) === tail) this.projectLocks.delete(key);
+    }
+  }
+
+  async withDeviceLock(token, callback) {
+    const key = this.deviceId(token);
+    const previous = this.deviceLocks.get(key) || Promise.resolve();
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const tail = previous.then(() => gate);
+    this.deviceLocks.set(key, tail);
+    await previous;
+    try {
+      return await callback();
+    } finally {
+      release();
+      if (this.deviceLocks.get(key) === tail) this.deviceLocks.delete(key);
     }
   }
 

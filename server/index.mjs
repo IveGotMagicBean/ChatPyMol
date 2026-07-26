@@ -82,7 +82,7 @@ const PROTEIN_RECOMMENDATIONS = [
     category: "核酸"
   }
 ];
-const OFFICIAL_EXAMPLE_SCHEMA = 2;
+const OFFICIAL_EXAMPLE_SCHEMA = 6;
 const OFFICIAL_EXAMPLE_PML_MARKER =
   `# @chatpymol official-example=${OFFICIAL_EXAMPLE_SCHEMA}`;
 
@@ -182,113 +182,199 @@ app.post(
   "/api/bootstrap",
   asyncRoute(async (request, response) => {
     const token = request.body?.deviceToken;
-    const initial = await store.bootstrap(token);
-    let workspace = initial;
-    let exampleInjected = false;
-    const isFirstVisit =
-      initial.device.projects?.length === 1 &&
-      initial.device.createdAt === initial.device.lastSeenAt;
-
-    if (isFirstVisit && !workspace.structures.length) {
-      const buffer = await readFile(path.join(root, "server/examples/1AKI.pdb"));
-      await store.addStructure(token, workspace.project.id, {
-        originalname: "1AKI.pdb",
-        buffer,
-        size: buffer.length
+    const payload = await store.withDeviceLock(token, async () => {
+      const initial = await store.bootstrap(token, {
+        _deviceLockHeld: true
       });
-      if (/^(?:新对话|未命名分子场景|New chat)/.test(workspace.project.title)) {
-        await store.renameProject(token, workspace.project.id, "示例对话");
-      }
-      workspace = await store.getWorkspace(token, workspace.project.id);
-      exampleInjected = true;
-    }
+      let device = initial.device;
+      let exampleInjected = false;
+      const exampleRecord = device.officialExample || {};
+      const markerStatus =
+        exampleRecord.status ||
+        (exampleRecord.deletedAt
+          ? "deleted"
+          : exampleRecord.projectId
+            ? "installed"
+            : "none");
+      const handledSchema = Number(exampleRecord.schema || 0);
+      const isDeleted = markerStatus === "deleted";
+      const isCurrentInstallation =
+        markerStatus === "installed" &&
+        handledSchema >= OFFICIAL_EXAMPLE_SCHEMA;
 
-    let exampleState = inspectOfficialExample(workspace);
-
-    if (
-      (exampleState.hasOfficialExample || exampleState.hasLegacyExample) &&
-      /^(?:溶菌酶示例\s*·\s*1AKI|1AKI 示例)$/.test(workspace.project.title)
-    ) {
-      await store.renameProject(token, workspace.project.id, "示例对话");
-      workspace = await store.getWorkspace(token, workspace.project.id);
-      exampleState = inspectOfficialExample(workspace);
-    }
-
-    if (exampleState.canInstall) {
-      let installed = false;
-      await store.withProjectLock(token, workspace.project.id, async () => {
-        const lockedWorkspace = await store.getWorkspace(
-          token,
-          workspace.project.id
-        );
-        const lockedState = inspectOfficialExample(lockedWorkspace);
-        if (!lockedState.canInstall) return;
-
-        const chronologicalVersions = [...lockedWorkspace.versions].sort(
-          (left, right) => left.revision - right.revision
-        );
-        const fullVersions = await Promise.all(
-          chronologicalVersions.map((version) =>
-            store.getVersion(token, lockedWorkspace.project.id, version.id)
+      if (!isDeleted && !isCurrentInstallation) {
+        const workspaces = await Promise.all(
+          device.projects.map((projectId) =>
+            projectId === initial.project.id
+              ? Promise.resolve(initial)
+              : store.getWorkspace(token, projectId)
           )
         );
-        const loadVersion =
-          fullVersions.find((version) =>
-            version?.pml.includes(
-              `# @chatpymol structure=${lockedState.structure.id}`
+        let exampleWorkspace = exampleRecord.projectId
+          ? workspaces.find(
+              (candidate) => candidate.project.id === exampleRecord.projectId
             )
-          ) || lockedWorkspace.version;
-        let styledVersion = lockedWorkspace.version;
-        if (!lockedWorkspace.pml.includes(OFFICIAL_EXAMPLE_PML_MARKER)) {
-          styledVersion = await store.saveVersion(
-            token,
-            lockedWorkspace.project.id,
-            {
-              pml: officialExamplePml(lockedWorkspace.pml),
-              actor: "ai",
-              source: "demo",
-              summary: "示例：将 1AKI 改为粉红色",
-              baseVersionId: lockedWorkspace.project.activeVersionId,
-              eventKind: "demo.scene.commit",
-              objectIds: [lockedState.structure.id],
-              _lockHeld: true
-            }
+          : null;
+        let allowPristine = markerStatus === "pending";
+        let preserveExisting = false;
+
+        if (exampleWorkspace) {
+          const recordedState = inspectOfficialExample(exampleWorkspace);
+          preserveExisting = Boolean(
+            markerStatus === "installed" &&
+              !recordedState.hasOfficialExample &&
+              !recordedState.canInstall &&
+              (recordedState.hasLegacyExample ||
+                recordedState.hasManagedExamplePml)
+          );
+          if (
+            !allowPristine &&
+            !preserveExisting &&
+            !recordedState.hasOfficialExample &&
+            !recordedState.canInstall
+          ) {
+            exampleWorkspace = null;
+          }
+        }
+
+        if (!exampleWorkspace) {
+          exampleWorkspace = workspaces.find(
+            (candidate) => inspectOfficialExample(candidate).hasOfficialExample
           );
         }
-        await store.replaceMessages(
-          token,
-          lockedWorkspace.project.id,
-          officialExampleMessages({
-            structure: lockedState.structure,
-            loadVersionId: loadVersion.id,
-            styledVersionId: styledVersion.id
-          }),
-          { _lockHeld: true }
-        );
-        await store.notifyWorkspaceUpdated(token, {
-          type: "workspace.updated",
-          action: "onboarding.example.installed",
-          projectId: lockedWorkspace.project.id,
-          sessionId: lockedWorkspace.project.id,
-          conversationId: lockedWorkspace.project.id,
-          versionId: styledVersion.id,
-          revision: styledVersion.revision,
-          objectIds: [lockedState.structure.id],
-          source: "demo",
-          actor: "system",
-          updatedAt: new Date().toISOString()
-        });
-        installed = true;
-      });
-      workspace = await store.getWorkspace(token, workspace.project.id);
-      exampleInjected ||= installed;
-    }
 
-    response.json({
-      device: initial.device,
-      ...workspace,
-      exampleInjected
+        if (!exampleWorkspace) {
+          exampleWorkspace = workspaces.find(
+            (candidate) => inspectOfficialExample(candidate).canInstall
+          );
+        }
+
+        if (!exampleWorkspace) {
+          const isFirstVisit =
+            device.projects.length === 1 &&
+            device.createdAt === device.lastSeenAt;
+          const canReuseActive =
+            isFirstVisit && isPristineEmptyWorkspace(initial);
+          if (canReuseActive) {
+            exampleWorkspace = initial;
+            device = await store.markOfficialExample(
+              token,
+              OFFICIAL_EXAMPLE_SCHEMA,
+              exampleWorkspace.project.id,
+              { _deviceLockHeld: true, status: "pending" }
+            );
+          } else {
+            exampleWorkspace = await store.createProject(
+              token,
+              "示例对话",
+              {
+                activate: false,
+                officialExampleSchema: OFFICIAL_EXAMPLE_SCHEMA,
+                _deviceLockHeld: true
+              }
+            );
+          }
+          allowPristine = true;
+        }
+
+        if (!exampleWorkspace.structures.length) {
+          if (!isPristineEmptyWorkspace(exampleWorkspace)) {
+            exampleWorkspace = await store.createProject(
+              token,
+              "示例对话",
+              {
+                activate: false,
+                officialExampleSchema: OFFICIAL_EXAMPLE_SCHEMA,
+                _deviceLockHeld: true
+              }
+            );
+          }
+          const buffer = await readFile(
+            path.join(root, "server/examples/1AKI.pdb")
+          );
+          await store.addStructure(token, exampleWorkspace.project.id, {
+            originalname: "1AKI.pdb",
+            buffer,
+            size: buffer.length
+          });
+          await store.renameProject(
+            token,
+            exampleWorkspace.project.id,
+            "示例对话"
+          );
+          exampleWorkspace = await store.getWorkspace(
+            token,
+            exampleWorkspace.project.id
+          );
+          exampleInjected = true;
+        }
+
+        if (
+          allowPristine &&
+          /^(?:新对话|未命名分子场景|New chat)$/.test(
+            exampleWorkspace.project.title
+          )
+        ) {
+          await store.renameProject(
+            token,
+            exampleWorkspace.project.id,
+            "示例对话"
+          );
+          exampleWorkspace = await store.getWorkspace(
+            token,
+            exampleWorkspace.project.id
+          );
+        }
+
+        if (
+          /^(?:溶菌酶示例\s*·\s*1AKI|1AKI 示例)$/.test(
+            exampleWorkspace.project.title
+          )
+        ) {
+          await store.renameProject(
+            token,
+            exampleWorkspace.project.id,
+            "示例对话"
+          );
+          exampleWorkspace = await store.getWorkspace(
+            token,
+            exampleWorkspace.project.id
+          );
+        }
+
+        if (
+          !preserveExisting &&
+          !inspectOfficialExample(exampleWorkspace).hasOfficialExample
+        ) {
+          const installed = await installOfficialExample(
+            token,
+            exampleWorkspace.project.id,
+            { allowPristine }
+          );
+          exampleWorkspace = installed.workspace;
+          exampleInjected ||= installed.installed;
+        }
+
+        device = await store.markOfficialExample(
+          token,
+          OFFICIAL_EXAMPLE_SCHEMA,
+          exampleWorkspace.project.id,
+          { _deviceLockHeld: true }
+        );
+      }
+
+      const activeWorkspace = await store.getWorkspace(
+        token,
+        device.activeProjectId
+      );
+
+      return {
+        device,
+        ...activeWorkspace,
+        exampleInjected
+      };
     });
+    response.json(payload);
   })
 );
 
@@ -938,8 +1024,180 @@ function safeDownloadName(title) {
   );
 }
 
-function officialExamplePml(pml) {
-  return `${String(pml || "").trimEnd()}\n\n${OFFICIAL_EXAMPLE_PML_MARKER}\ncolor pink, all\n`;
+function officialExampleHighlightPml(pml) {
+  return `${String(pml || "").trimEnd()}
+
+${OFFICIAL_EXAMPLE_PML_MARKER} stage=highlight
+select demo_site, chain A and resi 35+52
+show sticks, demo_site
+color tv_orange, demo_site
+set stick_radius, 0.22, demo_site
+label demo_site and name CA, "%s%s" % (resn, resi)
+set label_color, black, demo_site
+set label_size, 18
+zoom demo_site, 12
+deselect
+`;
+}
+
+function officialExampleDistancePml(pml) {
+  return `${String(pml || "").trimEnd()}
+
+${OFFICIAL_EXAMPLE_PML_MARKER} stage=distance
+distance demo_Glu35_Asp52, chain A and resi 35 and name OE1, chain A and resi 52 and name OD1
+set dash_labels, on, demo_Glu35_Asp52
+set dash_color, cyan, demo_Glu35_Asp52
+set dash_width, 3, demo_Glu35_Asp52
+set dash_gap, 0.25, demo_Glu35_Asp52
+`;
+}
+
+function officialExamplePresentationPml(pml) {
+  return `${String(pml || "").trimEnd()}
+
+${OFFICIAL_EXAMPLE_PML_MARKER} stage=presentation
+select demo_neighbors, (byres (demo_site around 5)) and polymer and not demo_site
+show lines, demo_neighbors
+color gray70, demo_neighbors
+show surface, 1AKI and polymer
+set transparency, 0.35, 1AKI and polymer
+set surface_color, lightblue, 1AKI and polymer
+color tv_orange, demo_site
+bg_color white
+set ray_opaque_background, off
+set antialias, 2
+set depth_cue, 0
+set two_sided_lighting, on
+zoom demo_site, 14
+deselect
+`;
+}
+
+function isPristineEmptyWorkspace(workspace) {
+  return Boolean(
+    workspace.structures.length === 0 &&
+      workspace.messages.length === 1 &&
+      workspace.messages[0].mode === "system" &&
+      workspace.versions.length === 1 &&
+      workspace.versions[0].source === "bootstrap" &&
+      /^(?:新对话|未命名分子场景|New chat|示例对话)$/.test(
+        workspace.project.title
+      )
+  );
+}
+
+async function installOfficialExample(
+  token,
+  projectId,
+  { allowPristine = false } = {}
+) {
+  let installed = false;
+  await store.withProjectLock(token, projectId, async () => {
+    const workspace = await store.getWorkspace(token, projectId);
+    const state = inspectOfficialExample(workspace);
+    if (state.hasOfficialExample) return;
+    if (!state.canInstall && !(allowPristine && state.isPristineExample)) {
+      const error = new Error("示例对话已被编辑，不能自动覆盖");
+      error.status = 409;
+      throw error;
+    }
+
+    const chronologicalVersions = [...workspace.versions].sort(
+      (left, right) => left.revision - right.revision
+    );
+    const fullVersions = await Promise.all(
+      chronologicalVersions.map((version) =>
+        store.getVersion(token, projectId, version.id)
+      )
+    );
+    const loadVersion =
+      fullVersions.find((version) =>
+        version?.pml.includes(`# @chatpymol structure=${state.structure.id}`)
+      ) || workspace.version;
+    let activeVersionId = workspace.project.activeVersionId;
+    let highlightVersion = fullVersions.find((version) =>
+      version?.pml.includes(`${OFFICIAL_EXAMPLE_PML_MARKER} stage=highlight`)
+    );
+    if (!highlightVersion) {
+      highlightVersion = await store.saveVersion(token, projectId, {
+        pml: officialExampleHighlightPml(loadVersion.pml),
+        actor: "ai",
+        source: "demo",
+        summary: "示例：高亮并标注 Glu35 / Asp52",
+        baseVersionId: activeVersionId,
+        parentVersionId: loadVersion.id,
+        eventKind: "demo.scene.commit",
+        objectIds: [state.structure.id],
+        _lockHeld: true
+      });
+      activeVersionId = highlightVersion.id;
+    }
+    let distanceVersion = fullVersions.find((version) =>
+      version?.pml.includes(`${OFFICIAL_EXAMPLE_PML_MARKER} stage=distance`)
+    );
+    if (!distanceVersion) {
+      distanceVersion = await store.saveVersion(token, projectId, {
+        pml: officialExampleDistancePml(highlightVersion.pml),
+        actor: "ai",
+        source: "demo",
+        summary: "示例：测量 Glu35 OE1–Asp52 OD1 距离",
+        baseVersionId: activeVersionId,
+        parentVersionId: highlightVersion.id,
+        eventKind: "demo.scene.commit",
+        objectIds: [state.structure.id],
+        _lockHeld: true
+      });
+      activeVersionId = distanceVersion.id;
+    }
+    let presentationVersion = fullVersions.find((version) =>
+      version?.pml.includes(
+        `${OFFICIAL_EXAMPLE_PML_MARKER} stage=presentation`
+      )
+    );
+    if (!presentationVersion) {
+      presentationVersion = await store.saveVersion(token, projectId, {
+        pml: officialExamplePresentationPml(distanceVersion.pml),
+        actor: "ai",
+        source: "demo",
+        summary: "示例：展示 5 Å 邻域与半透明表面",
+        baseVersionId: activeVersionId,
+        parentVersionId: distanceVersion.id,
+        eventKind: "demo.scene.commit",
+        objectIds: [state.structure.id],
+        _lockHeld: true
+      });
+    }
+    await store.replaceMessages(
+      token,
+      projectId,
+      officialExampleMessages({
+        structure: state.structure,
+        loadVersionId: loadVersion.id,
+        highlightVersionId: highlightVersion.id,
+        distanceVersionId: distanceVersion.id,
+        presentationVersionId: presentationVersion.id
+      }),
+      { _lockHeld: true }
+    );
+    await store.notifyWorkspaceUpdated(token, {
+      type: "workspace.updated",
+      action: "onboarding.example.installed",
+      projectId,
+      sessionId: projectId,
+      conversationId: projectId,
+      versionId: presentationVersion.id,
+      revision: presentationVersion.revision,
+      objectIds: [state.structure.id],
+      source: "demo",
+      actor: "system",
+      updatedAt: new Date().toISOString()
+    });
+    installed = true;
+  });
+  return {
+    workspace: await store.getWorkspace(token, projectId),
+    installed
+  };
 }
 
 function inspectOfficialExample(workspace) {
@@ -951,8 +1209,16 @@ function inspectOfficialExample(workspace) {
       message.demoSchema === OFFICIAL_EXAMPLE_SCHEMA &&
       message.demoStep === "official-ready"
   );
+  const hasPreviousOfficialExample = workspace.messages.some(
+    (message) =>
+      Number(message.demoSchema || 0) < OFFICIAL_EXAMPLE_SCHEMA &&
+      String(message.demoStep || "").startsWith("official-")
+  );
   const hasLegacyExample = workspace.messages.some((message) =>
     String(message.demoStep || "").startsWith("example-")
+  );
+  const hasManagedExamplePml = workspace.pml.includes(
+    "# @chatpymol official-example="
   );
   const hasOnlyWelcomeMessage =
     workspace.messages.length === 1 &&
@@ -973,16 +1239,23 @@ function inspectOfficialExample(workspace) {
         ["bootstrap", "upload", "demo"].includes(version.source)
       )
   );
+  const isPristineExample = Boolean(
+    isUnedited && hasRecognizedTitle && hasOnlyWelcomeMessage
+  );
   return {
     structure,
     hasOfficialExample,
-    hasLegacyExample,
+    hasLegacyExample: hasLegacyExample || hasPreviousOfficialExample,
+    hasManagedExamplePml,
+    isPristineExample,
     canInstall: Boolean(
       structure &&
         !hasOfficialExample &&
         isUnedited &&
         hasRecognizedTitle &&
-        (hasLegacyExample || hasOnlyWelcomeMessage)
+        (hasLegacyExample ||
+          hasPreviousOfficialExample ||
+          hasManagedExamplePml)
     )
   };
 }
@@ -990,7 +1263,9 @@ function inspectOfficialExample(workspace) {
 function officialExampleMessages({
   structure,
   loadVersionId,
-  styledVersionId
+  highlightVersionId,
+  distanceVersionId,
+  presentationVersionId
 }) {
   const shared = {
     mode: "demo",
@@ -1001,9 +1276,9 @@ function officialExampleMessages({
       ...shared,
       role: "user",
       demoStep: "official-request",
-      content: "加载一个真实的经典蛋白，先给我一个清晰的结构概览。",
+      content: "加载一个真实的经典蛋白，用一个接近研究分析的流程演示。",
       contentEn:
-        "Load a real classic protein and start with a clear structural overview."
+        "Load a real classic protein and demonstrate a realistic analysis workflow."
     },
     {
       ...shared,
@@ -1019,20 +1294,56 @@ function officialExampleMessages({
     {
       ...shared,
       role: "user",
-      demoStep: "official-style-request",
-      content: "把当前结构改成粉红色，并保留修改前的版本。",
+      demoStep: "official-highlight-request",
+      content: "我想重点观察 35 和 52 号残基。把它们高亮成棒状，并标出残基名称。",
       contentEn:
-        "Color the current structure pink and keep the previous version."
+        "Focus on residues 35 and 52. Highlight them as sticks and label their residue names."
     },
     {
       ...shared,
       role: "assistant",
-      demoStep: "official-styled",
+      demoStep: "official-highlighted",
       content:
-        "已将结构改为粉红色并保存为新版本；修改前的场景仍然保留。点击版本卡即可回看这个节点。",
+        "已选择链 A 的 Glu35 与 Asp52，以橙色棒状突出，并在 Cα 原子处添加残基标签。这个分析节点已保存，点击版本卡可回看。",
       contentEn:
-        "The structure is now pink and saved as a new version. The previous scene remains available, and this state can be reopened from the version card.",
-      versionId: styledVersionId
+        "Glu35 and Asp52 in chain A are selected, shown as orange sticks, and labeled at their C-alpha atoms. This analysis state is saved as a version.",
+      versionId: highlightVersionId
+    },
+    {
+      ...shared,
+      role: "user",
+      demoStep: "official-distance-request",
+      content: "再测量 Glu35 OE1 与 Asp52 OD1 两个侧链原子之间的距离。",
+      contentEn:
+        "Now measure the distance between the Glu35 OE1 and Asp52 OD1 side-chain atoms."
+    },
+    {
+      ...shared,
+      role: "assistant",
+      demoStep: "official-distance",
+      content:
+        "已创建 Glu35 OE1–Asp52 OD1 距离对象，并用青色虚线显示；虚线旁的数值由 PyMOL 根据当前结构坐标实时计算。测距前的标签版本仍然保留。",
+      contentEn:
+        "A Glu35 OE1–Asp52 OD1 distance object is shown as a cyan dashed line. PyMOL calculates the displayed value directly from the current coordinates, while the earlier labeled version remains available.",
+      versionId: distanceVersionId
+    },
+    {
+      ...shared,
+      role: "user",
+      demoStep: "official-surface-request",
+      content: "把 5 Å 内的周围残基也显示出来，再加半透明表面，让我观察局部结构环境。",
+      contentEn:
+        "Show neighboring residues within 5 angstroms and add a transparent surface to inspect the local structural environment."
+    },
+    {
+      ...shared,
+      role: "assistant",
+      demoStep: "official-presentation",
+      content:
+        "已用灰色线状显示 5 Å 邻域残基，并加入浅蓝色半透明表面；卡通、橙色目标残基、标签和距离虚线全部保留。这个场景可以继续调整，也可以直接导出 PML、PSE 或光线追踪 PNG。",
+      contentEn:
+        "Neighboring residues within 5 angstroms are shown as gray lines beneath a light-blue transparent surface, while the cartoon, orange target residues, labels, and distance line remain visible. The scene remains editable and exportable as PML, PSE, or ray-traced PNG.",
+      versionId: presentationVersionId
     },
     {
       ...shared,

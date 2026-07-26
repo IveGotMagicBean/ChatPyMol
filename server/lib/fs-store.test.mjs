@@ -158,3 +158,64 @@ test("replaceMessages installs an ordered bilingual conversation", async () => {
   assert.equal(continued.messages.length, 3);
   assert.equal(continued.messages.at(-1).content, "继续编辑");
 });
+
+test("inactive official example preserves the active project and deletion is final", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "chatpymol-test-"));
+  const store = new FileStore(root);
+  await store.init();
+  const token = "device_token_official_example_lifecycle_abcdefghijklmnop";
+  const initial = await store.bootstrap(token);
+  const example = await store.createProject(token, "示例对话", {
+    activate: false,
+    officialExampleSchema: 6
+  });
+  let listed = await store.listProjects(token);
+  let device = JSON.parse(
+    await readFile(path.join(store.deviceDir(token), "device.json"), "utf8")
+  );
+
+  assert.equal(listed.activeProjectId, initial.project.id);
+  assert.equal(listed.projects.length, 2);
+  assert.equal(device.officialExample.status, "pending");
+  assert.equal(device.officialExample.projectId, example.project.id);
+
+  await store.markOfficialExample(token, 6, example.project.id, {
+    status: "pending"
+  });
+  device = JSON.parse(
+    await readFile(path.join(store.deviceDir(token), "device.json"), "utf8")
+  );
+  assert.equal(device.officialExample.status, "pending");
+
+  await store.markOfficialExample(token, 6, example.project.id);
+  device = JSON.parse(
+    await readFile(path.join(store.deviceDir(token), "device.json"), "utf8")
+  );
+  assert.equal(device.officialExample.status, "installed");
+  assert.ok(device.officialExample.installedAt);
+
+  await store.deleteProject(token, example.project.id);
+  listed = await store.listProjects(token);
+  device = JSON.parse(
+    await readFile(path.join(store.deviceDir(token), "device.json"), "utf8")
+  );
+  assert.equal(listed.activeProjectId, initial.project.id);
+  assert.equal(listed.projects.length, 1);
+  assert.equal(device.officialExample.status, "deleted");
+  assert.equal(device.officialExample.projectId, null);
+  assert.ok(device.officialExample.deletedAt);
+});
+
+test("concurrent device bootstrap does not duplicate the initial project", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "chatpymol-test-"));
+  const store = new FileStore(root);
+  await store.init();
+  const token = "device_token_concurrent_bootstrap_abcdefghijklmnop";
+  const results = await Promise.all(
+    Array.from({ length: 10 }, () => store.bootstrap(token))
+  );
+  const listed = await store.listProjects(token);
+
+  assert.equal(new Set(results.map((item) => item.project.id)).size, 1);
+  assert.equal(listed.projects.length, 1);
+});
