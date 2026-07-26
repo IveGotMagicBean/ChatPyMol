@@ -110,3 +110,51 @@ test("uploaded structure is stored and added to PML", async () => {
   );
   assert.match(await readFile(stored.path, "utf8"), /HEADER TEST/);
 });
+
+test("replaceMessages installs an ordered bilingual conversation", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "chatpymol-test-"));
+  const store = new FileStore(root);
+  await store.init();
+  const token = "device_token_replace_messages_abcdefghijklmnop";
+  const initial = await store.bootstrap(token);
+  const before = Date.now();
+  const installed = await store.replaceMessages(token, initial.project.id, [
+    {
+      role: "user",
+      content: "加载一个真实蛋白。",
+      contentEn: "Load a real protein.",
+      mode: "demo"
+    },
+    {
+      role: "assistant",
+      content: "已创建可回溯场景。",
+      contentEn: "A reversible scene is ready.",
+      mode: "demo"
+    }
+  ]);
+  const workspace = await store.getWorkspace(token, initial.project.id);
+
+  assert.equal(installed.length, 2);
+  assert.deepEqual(
+    workspace.messages.map(({ role, contentEn }) => ({ role, contentEn })),
+    [
+      { role: "user", contentEn: "Load a real protein." },
+      { role: "assistant", contentEn: "A reversible scene is ready." }
+    ]
+  );
+  assert.ok(
+    Date.parse(workspace.messages[0].createdAt) <=
+      Date.parse(workspace.messages[1].createdAt)
+  );
+  assert.ok(Date.parse(workspace.messages[1].createdAt) <= Date.now());
+  assert.ok(Date.parse(workspace.messages[0].createdAt) >= before - 10);
+
+  await store.appendMessage(token, initial.project.id, {
+    role: "user",
+    content: "继续编辑",
+    mode: "human"
+  });
+  const continued = await store.getWorkspace(token, initial.project.id);
+  assert.equal(continued.messages.length, 3);
+  assert.equal(continued.messages.at(-1).content, "继续编辑");
+});

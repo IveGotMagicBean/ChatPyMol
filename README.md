@@ -32,7 +32,7 @@ PyMOL 原生界面与命令行 ─────────┼─> 事件记录 �
 - 浏览器内真实 PyMOL Open-Source 2.6 WASM 渲染；
 - 固定可见的经典 PyMOL A / S / H / L / C 原生栏、鼠标交互和命令行；
 - 人工操作静默自动保存，下一轮 AI 或 CLI 自动读取最新版本；
-- PDB/mmCIF 等结构上传、RCSB PDB 自动下载和内置示例；
+- PDB/mmCIF 等结构上传、RCSB PDB 自动下载，以及可删除的 1AKI 官方示例对话；
 - 多 Session、多对象、乐观并发保护和 `409` 冲突阻断；
 - 版本回看、撤销/重做、恢复为新提交；
 - PML、原始结构、工作区 ZIP、PSE 和光线追踪 PNG 导出；
@@ -160,6 +160,14 @@ npm pack --dry-run
 ```
 
 GitHub Actions 会在每次 push 和 Pull Request 上执行测试与生产构建。
+
+本地服务已在 `8787` 端口启动时，可以录制一份带大字字幕的真实浏览器操作演示：
+
+```bash
+npm run record:tour
+```
+
+视频、封面、字幕时间轴和诊断信息会写入被 Git 忽略的 `artifacts/recording/`。
 
 ## 安全与贡献
 

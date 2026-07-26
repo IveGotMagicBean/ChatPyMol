@@ -1426,12 +1426,18 @@ export function AppClean() {
                     </span>
                   )}
                   <div className="clean-message-content">
-                    {message.demoStep === "example-request" && (
+                    {["example-request", "official-request"].includes(
+                      message.demoStep
+                    ) && (
                       <span className="message-demo-badge">
-                        {t("示例演示")}
+                        {t("官方示例")}
                       </span>
                     )}
-                    <p>{message.content}</p>
+                    <p>
+                      {language === "en" && message.contentEn
+                        ? message.contentEn
+                        : message.content}
+                    </p>
                     {(message.demoStep === "example-ready"
                       ? []
                       : message.structureIds || []

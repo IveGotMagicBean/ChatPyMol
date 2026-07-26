@@ -59,6 +59,7 @@
     "dev": "concurrently -k -n api,web -c green,cyan \"node --watch server/index.mjs\" \"vite --host 0.0.0.0\"",
     "build": "vite build",
     "start": "NODE_ENV=production node server/index.mjs",
+    "record:tour": "node scripts/record-product-tour.mjs",
     "test": "node --test",
     "check": "npm run test && npm run build"
   },

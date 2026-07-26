@@ -241,6 +241,8 @@ export class FileStore {
       role: "assistant",
       content:
         "欢迎来到 ChatPyMOL。你可以上传本地 PDB/mmCIF、输入 PDB ID 自动获取结构，或直接用自然语言开始。右侧支持完整的 PyMOL 原生交互；AI 与人工操作会共同保存为可回退的版本。",
+      contentEn:
+        "Welcome to ChatPyMOL. Upload a local PDB/mmCIF file, enter a PDB ID, or start with a natural-language request. The right workspace provides native PyMOL interaction, while AI and manual edits are saved together as reversible versions.",
       mode: "system"
     });
   }
@@ -453,7 +455,12 @@ export class FileStore {
     });
   }
 
-  async appendMessage(token, projectId, message) {
+  async appendMessage(token, projectId, message, options = {}) {
+    if (!options._lockHeld) {
+      return this.withProjectLock(token, projectId, () =>
+        this.appendMessage(token, projectId, message, { _lockHeld: true })
+      );
+    }
     const dir = this.projectDir(token, projectId);
     const record = {
       id: `msg_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
@@ -462,6 +469,28 @@ export class FileStore {
     };
     await appendJsonLine(path.join(dir, "messages.jsonl"), record);
     return record;
+  }
+
+  async replaceMessages(token, projectId, messages, options = {}) {
+    if (!options._lockHeld) {
+      return this.withProjectLock(token, projectId, () =>
+        this.replaceMessages(token, projectId, messages, { _lockHeld: true })
+      );
+    }
+    const dir = this.projectDir(token, projectId);
+    const createdAt = Date.now();
+    const records = messages.map((message, index) => ({
+      id: `msg_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      createdAt: new Date(
+        createdAt - Math.max(0, messages.length - index - 1)
+      ).toISOString(),
+      ...message
+    }));
+    const serialized = records.length
+      ? `${records.map((record) => JSON.stringify(record)).join("\n")}\n`
+      : "";
+    await writeTextAtomic(path.join(dir, "messages.jsonl"), serialized);
+    return records;
   }
 
   async appendEvent(token, projectId, event) {
@@ -988,8 +1017,12 @@ async function appendJsonLine(file, value) {
 }
 
 async function writeJsonAtomic(file, value) {
+  await writeTextAtomic(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function writeTextAtomic(file, value) {
   await mkdir(path.dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.${randomUUID()}.tmp`;
-  await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await writeFile(temp, value, "utf8");
   await rename(temp, file);
 }

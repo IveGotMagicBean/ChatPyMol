@@ -56,6 +56,7 @@ const EN = {
     "Draft changes preview automatically; sending creates a version",
   "视觉方案": "Visual presets",
   "示例演示": "Example walkthrough",
+  "官方示例": "Official example",
   "示例": "Example",
   "载入": "Loaded",
   "导入": "Imported",

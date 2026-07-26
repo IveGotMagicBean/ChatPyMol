@@ -82,6 +82,9 @@ const PROTEIN_RECOMMENDATIONS = [
     category: "核酸"
   }
 ];
+const OFFICIAL_EXAMPLE_SCHEMA = 2;
+const OFFICIAL_EXAMPLE_PML_MARKER =
+  `# @chatpymol official-example=${OFFICIAL_EXAMPLE_SCHEMA}`;
 
 app.get("/api/health", (_request, response) => {
   response.json({
@@ -200,53 +203,85 @@ app.post(
       exampleInjected = true;
     }
 
-    const example = workspace.structures.find(
-      (item) => item.filename.toUpperCase() === "1AKI.PDB"
-    );
-    const hasDemoConversation = workspace.messages.some(
-      (message) => message.demoStep === "example-ready"
-    );
+    let exampleState = inspectOfficialExample(workspace);
 
     if (
-      hasDemoConversation &&
+      (exampleState.hasOfficialExample || exampleState.hasLegacyExample) &&
       /^(?:溶菌酶示例\s*·\s*1AKI|1AKI 示例)$/.test(workspace.project.title)
     ) {
       await store.renameProject(token, workspace.project.id, "示例对话");
       workspace = await store.getWorkspace(token, workspace.project.id);
+      exampleState = inspectOfficialExample(workspace);
     }
 
-    if (example && !hasDemoConversation) {
-      const versionId = workspace.version.id;
-      await store.appendMessage(token, workspace.project.id, {
-        role: "user",
-        content: "请随便加载一个真实蛋白，给我演示一下。",
-        mode: "demo",
-        demoStep: "example-request"
-      });
-      await store.appendMessage(token, workspace.project.id, {
-        role: "assistant",
-        content: "好的。我选择经典的鸡卵清溶菌酶结构 1AKI。下面是真实 PDB 文件，点击文件卡会在右侧打开 PyMOL。",
-        mode: "demo",
-        demoStep: "example-loaded",
-        versionId,
-        structureIds: [example.id]
-      });
-      await store.appendMessage(token, workspace.project.id, {
-        role: "user",
-        content: "把它显示成卡通结构，并让我可以继续手动编辑。",
-        mode: "demo",
-        demoStep: "example-style"
-      });
-      await store.appendMessage(token, workspace.project.id, {
-        role: "assistant",
-        content: "已经显示为卡通结构。右侧可以旋转、缩放和选择，也可以使用对象旁边的 A / S / H / L / C 菜单或底部 PyMOL 命令行继续编辑。",
-        mode: "demo",
-        demoStep: "example-ready",
-        versionId,
-        structureIds: [example.id]
+    if (exampleState.canInstall) {
+      let installed = false;
+      await store.withProjectLock(token, workspace.project.id, async () => {
+        const lockedWorkspace = await store.getWorkspace(
+          token,
+          workspace.project.id
+        );
+        const lockedState = inspectOfficialExample(lockedWorkspace);
+        if (!lockedState.canInstall) return;
+
+        const chronologicalVersions = [...lockedWorkspace.versions].sort(
+          (left, right) => left.revision - right.revision
+        );
+        const fullVersions = await Promise.all(
+          chronologicalVersions.map((version) =>
+            store.getVersion(token, lockedWorkspace.project.id, version.id)
+          )
+        );
+        const loadVersion =
+          fullVersions.find((version) =>
+            version?.pml.includes(
+              `# @chatpymol structure=${lockedState.structure.id}`
+            )
+          ) || lockedWorkspace.version;
+        let styledVersion = lockedWorkspace.version;
+        if (!lockedWorkspace.pml.includes(OFFICIAL_EXAMPLE_PML_MARKER)) {
+          styledVersion = await store.saveVersion(
+            token,
+            lockedWorkspace.project.id,
+            {
+              pml: officialExamplePml(lockedWorkspace.pml),
+              actor: "ai",
+              source: "demo",
+              summary: "示例：将 1AKI 改为粉红色",
+              baseVersionId: lockedWorkspace.project.activeVersionId,
+              eventKind: "demo.scene.commit",
+              objectIds: [lockedState.structure.id],
+              _lockHeld: true
+            }
+          );
+        }
+        await store.replaceMessages(
+          token,
+          lockedWorkspace.project.id,
+          officialExampleMessages({
+            structure: lockedState.structure,
+            loadVersionId: loadVersion.id,
+            styledVersionId: styledVersion.id
+          }),
+          { _lockHeld: true }
+        );
+        await store.notifyWorkspaceUpdated(token, {
+          type: "workspace.updated",
+          action: "onboarding.example.installed",
+          projectId: lockedWorkspace.project.id,
+          sessionId: lockedWorkspace.project.id,
+          conversationId: lockedWorkspace.project.id,
+          versionId: styledVersion.id,
+          revision: styledVersion.revision,
+          objectIds: [lockedState.structure.id],
+          source: "demo",
+          actor: "system",
+          updatedAt: new Date().toISOString()
+        });
+        installed = true;
       });
       workspace = await store.getWorkspace(token, workspace.project.id);
-      exampleInjected = true;
+      exampleInjected ||= installed;
     }
 
     response.json({
@@ -901,6 +936,122 @@ function safeDownloadName(title) {
       .replace(/[^\p{L}\p{N}._-]+/gu, "_")
       .slice(0, 100) || "chatpymol-scene"
   );
+}
+
+function officialExamplePml(pml) {
+  return `${String(pml || "").trimEnd()}\n\n${OFFICIAL_EXAMPLE_PML_MARKER}\ncolor pink, all\n`;
+}
+
+function inspectOfficialExample(workspace) {
+  const structure = workspace.structures.find(
+    (item) => item.filename.toUpperCase() === "1AKI.PDB"
+  );
+  const hasOfficialExample = workspace.messages.some(
+    (message) =>
+      message.demoSchema === OFFICIAL_EXAMPLE_SCHEMA &&
+      message.demoStep === "official-ready"
+  );
+  const hasLegacyExample = workspace.messages.some((message) =>
+    String(message.demoStep || "").startsWith("example-")
+  );
+  const hasOnlyWelcomeMessage =
+    workspace.messages.length === 1 &&
+    workspace.messages[0].mode === "system" &&
+    workspace.messages[0].content?.startsWith("欢迎来到 ChatPyMOL");
+  const hasRecognizedTitle =
+    !workspace.project.pinned &&
+    /^(?:示例对话|溶菌酶示例\s*·\s*1AKI|1AKI 示例)$/.test(
+      workspace.project.title
+    );
+  const isUnedited = Boolean(
+    structure &&
+      workspace.structures.length === 1 &&
+      workspace.messages.every((message) =>
+        ["system", "demo"].includes(message.mode)
+      ) &&
+      workspace.versions.every((version) =>
+        ["bootstrap", "upload", "demo"].includes(version.source)
+      )
+  );
+  return {
+    structure,
+    hasOfficialExample,
+    hasLegacyExample,
+    canInstall: Boolean(
+      structure &&
+        !hasOfficialExample &&
+        isUnedited &&
+        hasRecognizedTitle &&
+        (hasLegacyExample || hasOnlyWelcomeMessage)
+    )
+  };
+}
+
+function officialExampleMessages({
+  structure,
+  loadVersionId,
+  styledVersionId
+}) {
+  const shared = {
+    mode: "demo",
+    demoSchema: OFFICIAL_EXAMPLE_SCHEMA
+  };
+  return [
+    {
+      ...shared,
+      role: "user",
+      demoStep: "official-request",
+      content: "加载一个真实的经典蛋白，先给我一个清晰的结构概览。",
+      contentEn:
+        "Load a real classic protein and start with a clear structural overview."
+    },
+    {
+      ...shared,
+      role: "assistant",
+      demoStep: "official-loaded",
+      content:
+        "已载入鸡卵清溶菌酶 1AKI 的真实 PDB 结构，并创建初始场景。当前为白色背景、marine 配色的卡通视图，已自动居中。点击下方 1AKI.pdb 可在右侧打开原生 PyMOL。",
+      contentEn:
+        "The real PDB structure of hen egg-white lysozyme 1AKI is loaded in a centered cartoon view with a white background and marine coloring. Open 1AKI.pdb below to view it in native PyMOL.",
+      versionId: loadVersionId,
+      structureIds: [structure.id]
+    },
+    {
+      ...shared,
+      role: "user",
+      demoStep: "official-style-request",
+      content: "把当前结构改成粉红色，并保留修改前的版本。",
+      contentEn:
+        "Color the current structure pink and keep the previous version."
+    },
+    {
+      ...shared,
+      role: "assistant",
+      demoStep: "official-styled",
+      content:
+        "已将结构改为粉红色并保存为新版本；修改前的场景仍然保留。点击版本卡即可回看这个节点。",
+      contentEn:
+        "The structure is now pink and saved as a new version. The previous scene remains available, and this state can be reopened from the version card.",
+      versionId: styledVersionId
+    },
+    {
+      ...shared,
+      role: "user",
+      demoStep: "official-workflow-request",
+      content: "我想自己微调，并比较修改前后的效果，应该怎么做？",
+      contentEn:
+        "How can I refine it manually and compare the result with earlier versions?"
+    },
+    {
+      ...shared,
+      role: "assistant",
+      demoStep: "official-ready",
+      content:
+        "可以直接使用右侧 PyMOL 原生 A / S / H / L / C 菜单、鼠标或底部命令栏继续编辑；人工修改会自动保存，下一轮 AI 会读取最新场景。需要比较时，可点击对话中的版本卡查看历史，并使用撤销、重做或“恢复为新版本”。右侧还可以导出当前 PDB、PML、PSE 和光线追踪 PNG。",
+      contentEn:
+        "Continue editing with native PyMOL A / S / H / L / C menus, mouse controls, or the command line. Manual changes are saved automatically and become the next AI context. Use version cards, undo, redo, or restore-as-new-version to compare history. The workspace can export the current PDB, PML, PSE, and ray-traced PNG."
+    }
+  ];
 }
 
 function pdbIdFromMessage(message) {
