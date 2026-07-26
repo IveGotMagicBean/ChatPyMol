@@ -1,0 +1,24 @@
+{
+  "name": "patinae-web",
+  "type": "module",
+  "collaborators": [
+    "Pavel Yakovlev"
+  ],
+  "description": "Patinae web viewer — embeddable WebGPU molecular visualization component",
+  "version": "0.4.4",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patinae/patinae"
+  },
+  "files": [
+    "patinae_web_bg.wasm",
+    "patinae_web.js",
+    "patinae_web.d.ts"
+  ],
+  "main": "patinae_web.js",
+  "types": "patinae_web.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

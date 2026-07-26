@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "chatpymol": {
+      "type": "http",
+      "url": "${CHATPYMOL_BASE_URL:-http://127.0.0.1:8787}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CHATPYMOL_TOKEN}",
+        "x-chatpymol-source": "claude"
+      }
+    }
+  }
+}

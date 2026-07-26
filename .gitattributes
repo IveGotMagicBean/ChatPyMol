@@ -1,0 +1,7 @@
+# PDB records are fixed-width text and legitimately use right-padding spaces.
+*.pdb whitespace=-blank-at-eol
+
+# Keep WebAssembly and package archives byte-for-byte unchanged.
+*.wasm -text
+*.whl -text
+*.tar -text

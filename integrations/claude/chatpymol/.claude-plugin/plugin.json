@@ -1,0 +1,14 @@
+{
+  "name": "chatpymol",
+  "description": "让 Claude Code 与浏览器中的 PyMOL-WASM 协同维护版本化分子场景。",
+  "version": "0.2.0",
+  "author": {
+    "name": "ChatPyMOL"
+  },
+  "keywords": [
+    "pymol",
+    "protein",
+    "molecular-visualization",
+    "collaboration"
+  ]
+}

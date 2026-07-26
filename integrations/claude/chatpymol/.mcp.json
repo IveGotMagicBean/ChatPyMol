@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "chatpymol": {
+      "command": "chatpymol",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "CHATPYMOL_SOURCE": "claude"
+      }
+    }
+  }
+}

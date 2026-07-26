@@ -1,0 +1,32 @@
+name: 产品建议
+description: 分享你对 ChatPyMOL 交互、可视化或科研工作流的建议
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你帮助 ChatPyMOL 变得更好。请不要在 Issue 中粘贴 API Key、设备令牌或未公开的科研数据。
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 你当时正在查看什么结构、想完成什么任务？
+      placeholder: 例如：在同一 Session 中比较三个蛋白，并保留每一步配色版本。
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 你的建议
+      description: 你希望 ChatPyMOL 如何改进？
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 可选。可上传已脱敏的截图或复现步骤。

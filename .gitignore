@@ -1,0 +1,50 @@
+# Dependencies and generated builds
+node_modules/
+dist/
+.vite/
+.cache/
+
+# Server data, runtime state, and generated artifacts
+data/
+runtime/
+artifacts/
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+百炼配置.env
+*.pem
+*.key
+
+# Logs and temporary package output
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tgz
+*.zip
+*.pid
+.tmp/
+tmp/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# The legacy Patinae fallback is vendored source, even though its generated
+# directories have names that match the global build-output rules above.
+!vendor/patinae/dist/
+!vendor/patinae/dist/**
+!vendor/patinae/pkg/
+!vendor/patinae/pkg/**

@@ -1,0 +1,7 @@
+[mcp_servers.chatpymol]
+url = "http://127.0.0.1:8787/mcp"
+bearer_token_env_var = "CHATPYMOL_TOKEN"
+http_headers = { "x-chatpymol-source" = "codex" }
+default_tools_approval_mode = "writes"
+startup_timeout_sec = 20
+tool_timeout_sec = 120

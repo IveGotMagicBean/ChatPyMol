@@ -1,0 +1,1237 @@
+.native-pymol {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(132, 145, 166, 0.22);
+  border-radius: 13px;
+  background: #0b0d12;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 10px 32px rgba(7, 10, 16, 0.08);
+  color-scheme: dark;
+}
+
+.native-pymol-toolbar {
+  position: relative;
+  z-index: 12;
+  display: flex;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px 0 13px;
+  border-bottom: 1px solid rgba(152, 166, 190, 0.12);
+  background: #111318;
+  color: #f0f3f8;
+}
+
+.native-pymol-toolbar > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.native-pymol-toolbar strong {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.native-pymol-toolbar span {
+  overflow: hidden;
+  color: #929cab;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-pymol-toolbar .native-pymol-version {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid rgba(94, 153, 211, 0.18);
+  border-radius: 5px;
+  background: rgba(61, 119, 175, 0.1);
+  color: #8eb5d9;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.native-pymol-toolbar .native-save-state {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  color: #6f7e8f;
+  font-size: 8px;
+}
+
+.native-pymol-toolbar .native-save-state-saved {
+  color: #6ea98a;
+}
+
+.native-pymol-toolbar .native-save-state-error {
+  color: #d68181;
+}
+
+.native-pymol-toolbar .native-save-retry {
+  display: flex;
+  width: auto;
+  max-width: 150px;
+  height: 24px;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(191, 78, 78, 0.12);
+  color: #dc8c8c;
+}
+
+.native-pymol-toolbar .native-save-retry:hover:not(:disabled) {
+  background: rgba(191, 78, 78, 0.2);
+  color: #ffb2b2;
+}
+
+.native-pymol-toolbar .native-save-retry span {
+  color: inherit;
+  font-size: 8px;
+}
+
+.native-pymol-toolbar button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #9aa4b4;
+  cursor: pointer;
+}
+
+.native-pymol-toolbar button:hover:not(:disabled) {
+  background: #222832;
+  color: #f7f9fc;
+}
+
+.native-pymol-toolbar button.active {
+  background: #29354a;
+  color: #edf3ff;
+}
+
+.native-pymol-toolbar button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.native-pymol-toolbar-actions {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.native-export-menu {
+  position: relative;
+  height: 28px;
+}
+
+.native-export-trigger {
+  display: inline-flex;
+  width: 34px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 7px;
+  color: #9aa4b4;
+  cursor: pointer;
+  list-style: none;
+}
+
+.native-export-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.native-export-trigger:hover,
+.native-export-menu[open] .native-export-trigger {
+  background: #222832;
+  color: #f7f9fc;
+}
+
+.native-export-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  width: 166px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid rgba(152, 166, 190, 0.2);
+  border-radius: 10px;
+  background: #191d24;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+.native-pymol-toolbar .native-export-popover button {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 9px;
+  color: #b8c2d0;
+  font-size: 10px;
+  text-align: left;
+}
+
+.native-pymol-toolbar .native-export-popover button:hover:not(:disabled) {
+  background: #252c37;
+  color: #f5f7fa;
+}
+
+.native-pymol-toolbar .native-export-popover button svg {
+  flex: 0 0 auto;
+  color: #78aee0;
+}
+
+.native-pymol-toolbar .native-export-popover button span {
+  color: inherit;
+  font-size: inherit;
+}
+
+.native-status {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 99px;
+  background: #6f6f6f;
+}
+
+.native-status-ready {
+  background: #58b87a;
+  box-shadow: 0 0 0 3px rgba(88, 184, 122, 0.12);
+}
+
+.native-status-loading,
+.native-status-loading-scene,
+.native-status-exporting {
+  background: #d8a84d;
+}
+
+.native-status-warning {
+  background: #d8a84d;
+  box-shadow: 0 0 0 3px rgba(216, 168, 77, 0.12);
+}
+
+.native-status-error {
+  background: #db6464;
+}
+
+.native-pymol-canvas-shell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 360px;
+  flex: 1;
+  place-items: center;
+  overflow: hidden;
+  background: #090b10;
+}
+
+.native-pymol-canvas-shell canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  flex: none;
+  outline: none;
+  background: #090b10;
+  touch-action: none;
+}
+
+.native-pymol-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #090b10;
+}
+
+.native-pymol-loading,
+.native-pymol-error {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 9px;
+  padding: 26px;
+  background: rgba(9, 11, 16, 0.92);
+  color: #ededed;
+  text-align: center;
+}
+
+.native-pymol-loading strong,
+.native-pymol-error strong {
+  max-width: 420px;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.native-pymol-loading > div {
+  width: min(260px, 64%);
+  height: 2px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #313131;
+}
+
+.native-pymol-loading > div i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #d2d2d2;
+  transition: width 240ms ease;
+}
+
+.native-pymol-error {
+  color: #f3b6b6;
+}
+
+.native-pymol-loading > span,
+.native-pymol-error span {
+  max-width: 420px;
+  color: #8f8f8f;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.native-pymol-error button {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  background: #242424;
+  color: #ededed;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.native-pymol-error button:hover {
+  background: #303030;
+}
+
+.native-pymol-command {
+  display: flex;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 11px;
+  border-top: 1px solid rgba(152, 166, 190, 0.12);
+  background: #111318;
+  color: #929cab;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.native-pymol-command > span {
+  color: #66b983;
+  font-size: 10px;
+}
+
+.native-pymol-command input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f3f3f3;
+  font: inherit;
+  font-size: 11px;
+}
+
+.native-pymol-command input::placeholder {
+  color: #626c7c;
+}
+
+.native-pymol-command button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: #222832;
+  color: #e9eef7;
+  cursor: pointer;
+}
+
+.native-pymol-command button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.native-toolbar-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.native-pymol-feedback {
+  position: absolute;
+  z-index: 7;
+  top: 12px;
+  left: 12px;
+  max-width: calc(64% - 24px);
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(18, 18, 18, 0.88);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  color: #e8e8e8;
+  font-size: 10px;
+  line-height: 1.25;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  animation: native-feedback-in 150ms ease-out;
+}
+
+.native-selection-dock {
+  position: absolute;
+  z-index: 6;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  min-width: 0;
+  color: #ededed;
+}
+
+.native-selection-main {
+  display: flex;
+  min-width: 0;
+  height: 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 7px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(24, 24, 24, 0.92);
+  box-shadow: 0 9px 24px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+}
+
+.native-selection-main > svg {
+  flex: 0 0 auto;
+  color: #8f8f8f;
+}
+
+.native-selection-main select {
+  width: 58px;
+  flex: 0 0 58px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #d9d9d9;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+}
+
+.native-selection-main select option {
+  background: #242424;
+  color: #ededed;
+}
+
+.native-selection-hint {
+  min-width: 0;
+  overflow: hidden;
+  color: #818181;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-selection-summary {
+  display: flex;
+  min-width: 0;
+  height: 29px;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ededed;
+  cursor: pointer;
+  font: inherit;
+}
+
+.native-selection-summary:hover,
+.native-selection-summary[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.native-selection-summary span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-selection-summary small {
+  flex: 0 0 auto;
+  color: #69bd86;
+  font-size: 8px;
+}
+
+.native-selection-clear {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8d8d8d;
+  cursor: pointer;
+}
+
+.native-selection-clear:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.native-selection-actions {
+  position: absolute;
+  bottom: 45px;
+  left: 0;
+  display: flex;
+  width: min(310px, 100%);
+  padding: 10px;
+  flex-direction: column;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(20, 20, 20, 0.96);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+}
+
+.native-selection-actions button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.native-selection-actions > span {
+  color: #777;
+  font-size: 8px;
+}
+
+.native-selection-actions-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 1px;
+}
+
+.native-selection-actions-title strong {
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.native-selection-actions-title span {
+  color: #777;
+  font-size: 8px;
+}
+
+.native-object-panel {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  width: clamp(176px, 34%, 230px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  background: #202020;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12);
+  color: #ededed;
+}
+
+.native-object-panel > header {
+  display: flex;
+  min-height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px 0 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.native-object-panel > header > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.native-object-panel > header strong {
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.native-object-panel > header span {
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #9e9e9e;
+  font-size: 9px;
+}
+
+.native-object-panel > header button,
+.native-object-panel > footer button,
+.native-object-row > button,
+.native-object-popover button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.native-object-panel > header button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 7px;
+  background: transparent;
+  color: #969696;
+}
+
+.native-object-panel > header button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.native-object-list {
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px;
+  scrollbar-color: #484848 transparent;
+  scrollbar-width: thin;
+}
+
+.native-object-list > p {
+  margin: 18px 8px;
+  color: #797979;
+  font-size: 10px;
+  text-align: center;
+}
+
+.native-object-row {
+  position: relative;
+  display: grid;
+  min-height: 40px;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.native-object-row:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.native-object-row > button {
+  color: #9b9b9b;
+}
+
+.native-object-visibility,
+.native-object-more {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 7px;
+  background: transparent;
+}
+
+.native-object-visibility:hover,
+.native-object-more:hover,
+.native-object-more[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.native-object-name {
+  display: flex;
+  min-width: 0;
+  height: 38px;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 5px;
+  background: transparent;
+  text-align: left;
+}
+
+.native-object-name span,
+.native-object-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-object-name span {
+  color: #ececec;
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.native-object-name small {
+  color: #767676;
+  font-size: 8px;
+}
+
+.native-object-popover {
+  display: flex;
+  grid-column: 1 / -1;
+  margin: 2px 2px 7px;
+  padding: 9px;
+  flex-direction: column;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  background: rgba(8, 8, 8, 0.72);
+}
+
+.native-object-popover > span {
+  color: #737373;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+}
+
+.native-object-representations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.native-object-representations button {
+  min-width: 0;
+  height: 25px;
+  overflow: hidden;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.065);
+  color: #c7c7c7;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-object-representations button:hover,
+.native-object-secondary button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.native-object-colors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 1px;
+}
+
+.native-object-colors button {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 99px;
+  outline: 0 solid rgba(255, 255, 255, 0.25);
+  background: var(--swatch);
+  transition: outline-width 100ms ease;
+}
+
+.native-object-colors button:hover {
+  outline-width: 2px;
+}
+
+.native-object-secondary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.native-object-secondary button {
+  display: flex;
+  height: 27px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 6px;
+  background: transparent;
+  color: #9d9d9d;
+  font-size: 8px;
+}
+
+.native-object-panel > footer {
+  display: flex;
+  min-height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  padding: 5px 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.native-object-panel > footer button {
+  display: flex;
+  width: 100%;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 7px;
+  background: transparent;
+  color: #929292;
+  font-size: 9px;
+}
+
+.native-object-panel > footer button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ededed;
+}
+
+/* Modern object controls live outside PyMOL's legacy canvas GUI. */
+.native-panel-switch {
+  display: flex !important;
+  height: 28px;
+  align-items: center;
+  gap: 2px !important;
+  padding: 2px;
+  border: 1px solid rgba(91, 150, 210, 0.2);
+  border-radius: 8px;
+  background: #091321;
+}
+
+.native-pymol-toolbar .native-panel-switch button {
+  display: flex;
+  width: auto;
+  min-width: 36px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  color: #778291;
+  font-size: 9px;
+  font-weight: 560;
+}
+
+.native-pymol-toolbar .native-panel-switch button.active {
+  background: #183654;
+  color: #f4f9ff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.native-selection-dock {
+  right: calc(
+    var(--native-canvas-right, 0px) + var(--native-panel-width, 210px) + 10px
+  );
+  bottom: calc(var(--native-canvas-bottom, 0px) + 10px);
+  left: calc(var(--native-canvas-left, 0px) + 10px);
+}
+
+.native-object-panel {
+  top: var(--native-canvas-top, 0px);
+  right: var(--native-canvas-right, 0px);
+  bottom: auto;
+  width: var(--native-panel-width, clamp(200px, 34%, 224px));
+  height: var(--native-canvas-height, 100%);
+  border-left: 1px solid rgba(91, 150, 210, 0.18);
+  background: rgba(10, 21, 35, 0.98);
+  box-shadow: -14px 0 32px rgba(0, 0, 0, 0.16);
+  color: #e9edf3;
+  backdrop-filter: blur(14px);
+}
+
+.native-object-panel > header {
+  min-height: 44px;
+  flex-basis: 44px;
+  padding: 0 9px 0 12px;
+  border-bottom-color: rgba(91, 150, 210, 0.13);
+}
+
+.native-object-panel > header > div {
+  gap: 8px;
+}
+
+.native-object-panel > header > div > svg {
+  color: #74a9dc;
+}
+
+.native-object-panel > header strong {
+  font-size: 10px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+
+.native-object-panel > header span {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  background: rgba(91, 150, 210, 0.12);
+  color: #8db8df;
+  font-size: 8px;
+}
+
+.native-object-panel > header button:disabled {
+  opacity: 0.45;
+}
+
+.native-object-list {
+  padding: 8px;
+  scrollbar-color: #303844 transparent;
+}
+
+.native-object-card {
+  overflow: hidden;
+  margin-bottom: 7px;
+  border: 1px solid rgba(91, 150, 210, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.native-object-card:hover {
+  border-color: rgba(105, 169, 231, 0.28);
+  background: rgba(74, 139, 204, 0.055);
+}
+
+.native-object-card.is-disabled .native-object-name,
+.native-object-card.is-disabled .native-object-tabs {
+  opacity: 0.48;
+}
+
+.native-object-row {
+  min-height: 46px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  padding: 2px 6px 0;
+  border-radius: 0;
+}
+
+.native-object-row:hover {
+  background: transparent;
+}
+
+.native-object-visibility {
+  width: 28px;
+  color: #6faf8a !important;
+}
+
+.native-object-card.is-disabled .native-object-visibility {
+  color: #657080 !important;
+}
+
+.native-object-name {
+  height: 42px;
+  padding: 0 4px;
+}
+
+.native-object-name span {
+  color: #eef7ff;
+  font-size: 10px;
+  font-weight: 590;
+}
+
+.native-object-name small {
+  color: #6685a5;
+  font-size: 8px;
+}
+
+.native-object-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 0 5px 6px;
+}
+
+.native-object-tabs button {
+  display: flex;
+  min-width: 0;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #7897b6;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9.5px;
+}
+
+.native-object-tabs button:hover,
+.native-object-tabs button.active {
+  background: rgba(77, 151, 222, 0.15);
+  color: #dceeff;
+}
+
+.native-object-tabs button.active svg {
+  transform: rotate(180deg);
+}
+
+.native-object-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 7px;
+  border-top: 1px solid rgba(91, 150, 210, 0.11);
+  background: rgba(3, 12, 23, 0.5);
+}
+
+.native-object-menu button {
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(83, 145, 207, 0.09);
+  color: #a9c2da;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.native-object-menu button:hover {
+  background: rgba(75, 153, 227, 0.2);
+  color: #f1f8ff;
+}
+
+.native-object-menu button.is-swatch i {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 99px;
+  background: var(--swatch);
+}
+
+.native-object-menu button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.native-object-panel button:focus-visible,
+.native-selection-dock button:focus-visible,
+.native-selection-dock select:focus-visible {
+  outline: 2px solid #67a9e8;
+  outline-offset: -2px;
+}
+
+.native-object-panel > footer {
+  min-height: 40px;
+  flex-basis: 40px;
+  padding: 6px 8px;
+  border-top-color: rgba(91, 150, 210, 0.13);
+}
+
+.native-object-panel > footer button {
+  height: 28px;
+  border-radius: 7px;
+  color: #7f8a99;
+  font-size: 8px;
+}
+
+.native-object-panel > footer button:hover {
+  background: rgba(75, 153, 227, 0.14);
+  color: #e8f4ff;
+}
+
+:root[data-theme="light"] .native-object-panel {
+  border-left-color: #d7e6f5;
+  background: rgba(248, 251, 255, 0.985);
+  box-shadow: -14px 0 32px rgba(35, 86, 132, 0.1);
+  color: #19324b;
+}
+
+:root[data-theme="light"] .native-object-panel > header,
+:root[data-theme="light"] .native-object-panel > footer {
+  border-color: #dfeaf5;
+}
+
+:root[data-theme="light"] .native-object-panel > header strong {
+  color: #1c3854;
+}
+
+:root[data-theme="light"] .native-object-panel > header button,
+:root[data-theme="light"] .native-object-panel > footer button {
+  color: #66819b;
+}
+
+:root[data-theme="light"] .native-object-card {
+  border-color: #dbe9f6;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 8px rgba(54, 105, 151, 0.04);
+}
+
+:root[data-theme="light"] .native-object-card:hover {
+  border-color: #bdd8ee;
+  background: #fff;
+}
+
+:root[data-theme="light"] .native-object-name span {
+  color: #173550;
+}
+
+:root[data-theme="light"] .native-object-visibility {
+  color: #318465 !important;
+}
+
+:root[data-theme="light"] .native-object-tabs button {
+  color: #66839f;
+}
+
+:root[data-theme="light"] .native-object-tabs button:hover,
+:root[data-theme="light"] .native-object-tabs button.active {
+  background: #e8f3fd;
+  color: #245f94;
+}
+
+:root[data-theme="light"] .native-object-menu {
+  border-top-color: #dfeaf5;
+  background: #f4f9fe;
+}
+
+:root[data-theme="light"] .native-object-menu button {
+  background: #e9f3fc;
+  color: #466985;
+}
+
+:root[data-theme="light"] .native-object-menu button:hover {
+  background: #d9edfc;
+  color: #174f7d;
+}
+
+:root[data-theme="light"] .native-selection-main {
+  border-color: #cfe1f1;
+  background: rgba(248, 252, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(42, 91, 135, 0.13);
+  color: #183650;
+}
+
+:root[data-theme="light"] .native-selection-main > svg {
+  color: #5d83a4;
+}
+
+:root[data-theme="light"] .native-selection-main select {
+  color: #365e7e;
+}
+
+:root[data-theme="light"] .native-selection-main select option {
+  background: #f8fbff;
+  color: #183650;
+}
+
+:root[data-theme="light"] .native-selection-hint {
+  color: #6a849a;
+}
+
+:root[data-theme="light"] .native-selection-summary {
+  background: #eaf4fc;
+  color: #214b6d;
+}
+
+:root[data-theme="light"] .native-selection-summary:hover,
+:root[data-theme="light"] .native-selection-summary[aria-expanded="true"] {
+  background: #dceefa;
+}
+
+:root[data-theme="light"] .native-selection-summary small {
+  color: #27805e;
+}
+
+:root[data-theme="light"] .native-selection-clear {
+  color: #66839c;
+}
+
+:root[data-theme="light"] .native-selection-clear:hover {
+  background: #e3f0fa;
+  color: #204f75;
+}
+
+:root[data-theme="light"] .native-selection-actions {
+  border-color: #cfe1f1;
+  background: rgba(250, 253, 255, 0.98);
+  box-shadow: 0 16px 38px rgba(42, 91, 135, 0.16);
+  color: #193854;
+}
+
+:root[data-theme="light"] .native-selection-actions > span,
+:root[data-theme="light"] .native-selection-actions-title span {
+  color: #6f879b;
+}
+
+:root[data-theme="light"] .native-selection-actions .native-object-representations button {
+  background: #eaf3fb;
+  color: #466984;
+}
+
+:root[data-theme="light"] .native-selection-actions .native-object-representations button:hover,
+:root[data-theme="light"] .native-selection-actions .native-object-secondary button:hover {
+  background: #d9ecfa;
+  color: #164f7c;
+}
+
+:root[data-theme="light"] .native-selection-actions .native-object-secondary button {
+  color: #557590;
+}
+
+@keyframes native-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 560px) {
+  .native-pymol-feedback {
+    max-width: calc(100% - 24px);
+  }
+}

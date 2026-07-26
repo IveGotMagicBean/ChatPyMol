@@ -1,0 +1,34 @@
+{
+  "name": "chatpymol",
+  "version": "0.2.0",
+  "description": "在 Codex 中用自然语言与浏览器人工编辑共同维护版本化 PyMOL 场景。",
+  "author": {
+    "name": "ChatPyMOL"
+  },
+  "keywords": [
+    "pymol",
+    "protein",
+    "molecular-visualization",
+    "collaboration"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ChatPyMOL",
+    "shortDescription": "让 Codex 与浏览器协同编辑版本化 PyMOL 场景",
+    "longDescription": "读取当前 Session、结构对象与最新 PML 版本，通过带冲突保护的 MCP 工具提交最小修改，并把结果实时同步到浏览器中的 PyMOL-WASM。",
+    "developerName": "ChatPyMOL",
+    "category": "Science",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "打开我的 ChatPyMOL 工作区，把目标蛋白改成适合论文的展示。",
+      "读取当前版本并比较这个 Session 里的多个结构。",
+      "继续处理我刚刚在浏览器中手动编辑过的场景。"
+    ],
+    "brandColor": "#4E8FF7"
+  },
+  "mcpServers": "./.mcp.json"
+}
