@@ -2,6 +2,33 @@
 
 一个在浏览器里运行的 AI–人工协同分子可视化工作台。自然语言、PyMOL 原生界面、CLI、Codex 和 Claude Code 共同维护同一条可追溯的场景版本链。
 
+## 复制给 Codex，一键接入
+
+把下面整段 Prompt 复制到 Codex。它会安装 ChatPyMOL CLI、插件与 MCP，并在需要浏览器确认配对时停下来提示你：
+
+```text
+请帮我安装并连接 ChatPyMOL 的 Codex 插件。
+
+项目仓库：https://github.com/IveGotMagicBean/ChatPyMol
+
+请先阅读仓库中的 docs/cli-codex-claude.zh-CN.md，然后按以下要求操作：
+1. 在安全的本地目录克隆或更新仓库，并确认 Node.js 版本不低于 22；
+2. 在仓库根目录运行 npm ci --ignore-scripts、npm run build 和 npm install -g .；
+3. 询问我的 ChatPyMOL 服务地址，再运行 chatpymol pair --base-url <服务地址>。需要浏览器确认时暂停，把配对链接交给我；不要输出、记录或提交匿名工作区令牌；
+4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；
+5. 使用 chatpymol status、codex plugin list 和 codex mcp list 验证安装结果；
+6. 完成后提醒我重启 Codex，并在新会话中使用 /mcp 确认 chatpymol 已连接。
+
+不要修改任何蛋白场景，除非我随后明确提出修改要求。
+```
+
+完成后可以在新的 Codex 对话中说：
+
+```text
+使用 $chatpymol-collaboration，列出我的 ChatPyMOL Session，
+打开我指定的课题，并把修改实时同步到浏览器。
+```
+
 > [!IMPORTANT]
 > ChatPyMOL 是独立的社区开源项目，并非 Schrödinger, LLC 的官方产品，与其不存在隶属或背书关系。项目内的浏览器渲染器基于 Open-Source PyMOL；PyMOL 是 Schrödinger, LLC 的商标。
 

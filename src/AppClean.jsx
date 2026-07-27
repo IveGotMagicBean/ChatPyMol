@@ -1,6 +1,7 @@
 import {
   Bot,
   Check,
+  ChevronRight,
   Copy,
   FileBox,
   Github,
@@ -20,6 +21,7 @@ import {
   Plus,
   Send,
   Sun,
+  SquareTerminal,
   Trash2,
   X
 } from "lucide-react";
@@ -34,6 +36,34 @@ const GITHUB_URL = "https://github.com/IveGotMagicBean/ChatPyMol";
 const ISSUE_URL =
   "https://github.com/IveGotMagicBean/ChatPyMol/issues/new?template=suggestion.yml";
 const EMAIL_URL = "mailto:542058929@qq.com";
+const CODEX_GUIDE_URL =
+  "https://github.com/IveGotMagicBean/ChatPyMol/blob/main/docs/cli-codex-claude.zh-CN.md";
+const CODEX_INSTALL_PROMPT_ZH = `请帮我安装并连接 ChatPyMOL 的 Codex 插件。
+
+项目仓库：https://github.com/IveGotMagicBean/ChatPyMol
+
+请先阅读仓库中的 docs/cli-codex-claude.zh-CN.md，然后按以下要求操作：
+1. 在安全的本地目录克隆或更新仓库，并确认 Node.js 版本不低于 22；
+2. 在仓库根目录运行 npm ci --ignore-scripts、npm run build 和 npm install -g .；
+3. 询问我的 ChatPyMOL 服务地址，再运行 chatpymol pair --base-url <服务地址>。需要浏览器确认时暂停，把配对链接交给我；不要输出、记录或提交匿名工作区令牌；
+4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；
+5. 使用 chatpymol status、codex plugin list 和 codex mcp list 验证安装结果；
+6. 完成后提醒我重启 Codex，并在新会话中使用 /mcp 确认 chatpymol 已连接。
+
+不要修改任何蛋白场景，除非我随后明确提出修改要求。`;
+const CODEX_INSTALL_PROMPT_EN = `Help me install and connect the ChatPyMOL plugin for Codex.
+
+Repository: https://github.com/IveGotMagicBean/ChatPyMol
+
+Read docs/cli-codex-claude.zh-CN.md in the repository first, then:
+1. Clone or update the repository in a safe local directory and verify Node.js 22 or newer;
+2. From the repository root, run npm ci --ignore-scripts, npm run build, and npm install -g .;
+3. Ask me for my ChatPyMOL service URL, then run chatpymol pair --base-url <service-url>. Pause when browser confirmation is required and give me the pairing link. Never print, log, or commit the anonymous workspace token;
+4. From the repository root, run codex plugin marketplace add "$PWD/integrations/codex" and codex plugin add chatpymol@chatpymol-local;
+5. Verify the setup with chatpymol status, codex plugin list, and codex mcp list;
+6. Remind me to restart Codex, then use /mcp in a new session to confirm that chatpymol is connected.
+
+Do not modify any molecular scene unless I explicitly ask you to do so afterward.`;
 const CONVERSATION_MENU_WIDTH = 145;
 const CONVERSATION_MENU_HEIGHT = 108;
 const CONVERSATION_MENU_GAP = 4;
@@ -91,6 +121,8 @@ export function AppClean() {
   const [titleDraft, setTitleDraft] = useState("");
   const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
   const [emailCopyStatus, setEmailCopyStatus] = useState("idle");
+  const [codexDialogOpen, setCodexDialogOpen] = useState(false);
+  const [codexCopyStatus, setCodexCopyStatus] = useState("idle");
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const renderTimerRef = useRef(null);
@@ -115,7 +147,11 @@ export function AppClean() {
   const emailTriggerRef = useRef(null);
   const emailCopyButtonRef = useRef(null);
   const emailCopyTimerRef = useRef(null);
+  const codexCopyButtonRef = useRef(null);
+  const codexCopyTimerRef = useRef(null);
   const t = useMemo(() => createTranslator(language), [language]);
+  const codexInstallPrompt =
+    language === "en" ? CODEX_INSTALL_PROMPT_EN : CODEX_INSTALL_PROMPT_ZH;
   function toggleConversationMenu(conversationId, event) {
     if (menuId === conversationId) {
       setMenuId(null);
@@ -372,41 +408,50 @@ export function AppClean() {
     };
   }, [emailPopoverOpen]);
 
+  useEffect(() => {
+    if (!codexDialogOpen) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      setCodexDialogOpen(false);
+      setCodexCopyStatus("idle");
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    const focusFrame = window.requestAnimationFrame(() => {
+      codexCopyButtonRef.current?.focus();
+    });
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      window.cancelAnimationFrame(focusFrame);
+    };
+  }, [codexDialogOpen]);
+
   useEffect(
     () => () => {
       window.clearTimeout(renderTimerRef.current);
       window.clearTimeout(autoSaveTimerRef.current);
       window.clearTimeout(emailCopyTimerRef.current);
+      window.clearTimeout(codexCopyTimerRef.current);
     },
     []
   );
 
   async function copyContactEmail() {
-    let copied = false;
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText("542058929@qq.com");
-      copied = true;
-    } catch {
-      const input = document.createElement("textarea");
-      input.value = "542058929@qq.com";
-      input.setAttribute("readonly", "");
-      input.style.position = "fixed";
-      input.style.opacity = "0";
-      document.body.appendChild(input);
-      input.select();
-      try {
-        copied = document.execCommand("copy");
-      } catch {
-        copied = false;
-      }
-      input.remove();
-    }
-
+    const copied = await copyTextToClipboard("542058929@qq.com");
     setEmailCopyStatus(copied ? "copied" : "failed");
     window.clearTimeout(emailCopyTimerRef.current);
     emailCopyTimerRef.current = window.setTimeout(() => {
       setEmailCopyStatus("idle");
+    }, 2200);
+  }
+
+  async function copyCodexPrompt() {
+    const copied = await copyTextToClipboard(codexInstallPrompt);
+    setCodexCopyStatus(copied ? "copied" : "failed");
+    window.clearTimeout(codexCopyTimerRef.current);
+    codexCopyTimerRef.current = window.setTimeout(() => {
+      setCodexCopyStatus("idle");
     }, 2200);
   }
 
@@ -1394,6 +1439,19 @@ export function AppClean() {
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              className="clean-codex-entry"
+              onClick={() => {
+                setCodexDialogOpen(true);
+                setCodexCopyStatus("idle");
+              }}
+              aria-haspopup="dialog"
+            >
+              <SquareTerminal size={16} />
+              <span>{t("在 Codex 中使用")}</span>
+              <ChevronRight size={14} />
+            </button>
           </aside>
         )}
 
@@ -1706,8 +1764,109 @@ export function AppClean() {
           </div>,
           document.body
         )}
+      {codexDialogOpen &&
+        createPortal(
+          <div
+            className="clean-dialog-backdrop"
+            onPointerDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              setCodexDialogOpen(false);
+              setCodexCopyStatus("idle");
+            }}
+          >
+            <section
+              className="clean-codex-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="chatpymol-codex-title"
+            >
+              <div className="clean-codex-dialog-heading">
+                <span className="clean-codex-dialog-icon">
+                  <SquareTerminal size={18} />
+                </span>
+                <div>
+                  <h2 id="chatpymol-codex-title">
+                    {t("在 Codex 中使用 ChatPyMOL")}
+                  </h2>
+                  <p>
+                    {t(
+                      "复制下面的 Prompt 给 Codex，它会完成 CLI、插件、MCP 与浏览器配对。"
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="clean-codex-close"
+                  onClick={() => {
+                    setCodexDialogOpen(false);
+                    setCodexCopyStatus("idle");
+                  }}
+                  aria-label={t("关闭")}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <pre className="clean-codex-prompt">{codexInstallPrompt}</pre>
+              <div className="clean-codex-actions">
+                <a
+                  href={CODEX_GUIDE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("查看完整接入指南")}
+                </a>
+                <button
+                  ref={codexCopyButtonRef}
+                  type="button"
+                  className={`clean-codex-copy ${codexCopyStatus}`}
+                  onClick={copyCodexPrompt}
+                >
+                  {codexCopyStatus === "copied" ? (
+                    <Check size={15} />
+                  ) : (
+                    <Copy size={15} />
+                  )}
+                  <span aria-live="polite">
+                    {codexCopyStatus === "copied"
+                      ? t("Prompt 已复制")
+                      : codexCopyStatus === "failed"
+                        ? t("复制失败")
+                        : t("复制安装 Prompt")}
+                  </span>
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body
+        )}
     </div>
   );
+}
+
+async function copyTextToClipboard(value) {
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard unavailable");
+    }
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = value;
+    input.setAttribute("readonly", "");
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    input.select();
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    }
+    input.remove();
+    return copied;
+  }
 }
 
 function MessageVersionCard({

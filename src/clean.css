@@ -357,6 +357,199 @@ body,
   scrollbar-width: thin;
 }
 
+.clean-codex-entry {
+  display: flex;
+  width: 100%;
+  height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 8px;
+  padding: 0 9px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 8px 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.clean-codex-entry:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.clean-codex-entry > svg:first-child {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.clean-codex-entry > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clean-codex-entry > svg:last-child {
+  flex: 0 0 auto;
+  color: var(--quiet);
+}
+
+.clean-dialog-backdrop {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: color-mix(in srgb, #02060c 58%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.clean-codex-dialog {
+  display: flex;
+  width: min(660px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 40px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+.clean-codex-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 17px 17px 13px;
+}
+
+.clean-codex-dialog-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.clean-codex-dialog-heading > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.clean-codex-dialog h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.clean-codex-dialog p {
+  margin: 4px 0 0;
+  color: var(--quiet);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.clean-codex-close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--quiet);
+  cursor: pointer;
+}
+
+.clean-codex-close:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.clean-codex-prompt {
+  min-height: 180px;
+  margin: 0 17px;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 10.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.clean-codex-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 17px 17px;
+}
+
+.clean-codex-actions > a {
+  color: var(--quiet);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.clean-codex-actions > a:hover {
+  color: var(--accent-text);
+}
+
+.clean-codex-copy {
+  display: inline-flex;
+  min-width: 132px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.clean-codex-copy:hover {
+  background: var(--accent-hover);
+}
+
+.clean-codex-copy.copied {
+  background: var(--accent-cyan);
+}
+
+.clean-codex-copy.failed {
+  background: var(--danger);
+}
+
+.clean-codex-entry:focus-visible,
+.clean-codex-close:focus-visible,
+.clean-codex-copy:focus-visible,
+.clean-codex-actions > a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: 2px;
+}
+
 .clean-conversation-row {
   position: relative;
   display: flex;
@@ -1299,5 +1492,30 @@ body.is-resizing {
     width: min(720px, calc(100vw - 56px)) !important;
     border-left: 1px solid var(--line);
     box-shadow: -20px 0 50px rgba(0, 0, 0, 0.12);
+  }
+}
+
+@media (max-width: 560px) {
+  .clean-dialog-backdrop {
+    padding: 10px;
+  }
+
+  .clean-codex-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    border-radius: 13px;
+  }
+
+  .clean-codex-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .clean-codex-actions > a {
+    text-align: center;
+  }
+
+  .clean-codex-copy {
+    width: 100%;
   }
 }

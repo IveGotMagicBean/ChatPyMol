@@ -18,6 +18,13 @@ const EN = {
   "复制": "Copy",
   "已复制": "Copied",
   "复制失败": "Copy failed",
+  "在 Codex 中使用": "Use with Codex",
+  "在 Codex 中使用 ChatPyMOL": "Use ChatPyMOL with Codex",
+  "复制下面的 Prompt 给 Codex，它会完成 CLI、插件、MCP 与浏览器配对。":
+    "Copy this prompt into Codex to set up the CLI, plugin, MCP, and browser pairing.",
+  "查看完整接入指南": "View the full setup guide",
+  "复制安装 Prompt": "Copy setup prompt",
+  "Prompt 已复制": "Prompt copied",
   "AI 与人工协作的分子可视化工作台":
     "An AI-human workspace for molecular visualization",
   "新建对话": "New chat",
