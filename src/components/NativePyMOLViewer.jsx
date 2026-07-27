@@ -1434,7 +1434,10 @@ _p.draw()
                   }}
                 >
                   <FileBox size={14} />
-                  <span>{t("下载当前文件")}</span>
+                  <span className="native-export-copy">
+                    <strong>{t("原始结构文件")}</strong>
+                    <small>{t("原子坐标，不含配色与视角")}</small>
+                  </span>
                 </button>
               )}
               <button
@@ -1446,7 +1449,10 @@ _p.draw()
                 disabled={typeof onDownloadPml !== "function"}
               >
                 <FileCode2 size={14} />
-                <span>{t("下载 PML")}</span>
+                <span className="native-export-copy">
+                  <strong>{t("可复现脚本 PML")}</strong>
+                  <small>{t("可阅读可修改的 PyMOL 命令")}</small>
+                </span>
               </button>
               <button
                 type="button"
@@ -1457,7 +1463,10 @@ _p.draw()
                 disabled={!isReady}
               >
                 <Download size={14} />
-                <span>{t("下载 PSE")}</span>
+                <span className="native-export-copy">
+                  <strong>{t("完整 PyMOL 会话 PSE")}</strong>
+                  <small>{t("结构、样式与视角一起保存")}</small>
+                </span>
               </button>
             </div>
           </details>

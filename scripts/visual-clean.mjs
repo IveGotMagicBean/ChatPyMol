@@ -50,7 +50,9 @@ await page.locator('input[type="file"]').setInputFiles(
 );
 await page.getByRole("button", { name: /mini\.pdb/ }).waitFor();
 await page.locator(".clean-right-panel").waitFor();
-await page.getByLabel("下载当前文件").waitFor();
+await page.locator(".native-export-trigger").click();
+await page.getByText("原始结构文件", { exact: true }).waitFor();
+await page.locator(".native-export-trigger").click();
 
 const conversationCount = await page.locator(".clean-conversation-row").count();
 await page.getByRole("button", { name: "新建对话" }).click();

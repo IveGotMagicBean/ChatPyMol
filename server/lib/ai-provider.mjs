@@ -1,7 +1,7 @@
 import { parsePmlCommands } from "./fs-store.mjs";
 import { renderPmlSkills, selectPmlSkills, validatePmlSkillEdit } from "./pml-skills.mjs";
 
-const BAILIAN_TIMEOUT_MS = 28_000;
+const DEFAULT_BAILIAN_TIMEOUT_MS = 45_000;
 
 const SYSTEM_PROMPT = `你是 ChatPyMOL 中的分子可视化协作助手。
 
@@ -39,6 +39,13 @@ export async function proposePmlEdit({
   }));
   const skills = await selectPmlSkills(message);
   const skillPrompt = renderPmlSkills(skills);
+  const instantAnswer = tryInstantWorkspaceAnswer(message, compactPml);
+  if (instantAnswer) {
+    return {
+      ...instantAnswer,
+      skills: skills.map(({ id, title }) => ({ id, title }))
+    };
+  }
   const fastEdit = tryFastColorEdit(message, compactPml, structures);
   if (fastEdit) {
     validateAiEdit(fastEdit, compactPml);
@@ -108,6 +115,7 @@ async function compatibleChatEdit({
   skillPrompt,
   structures
 }) {
+  const startedAt = Date.now();
   let response;
   try {
     response = await fetch(
@@ -118,10 +126,11 @@ async function compatibleChatEdit({
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json"
         },
-        signal: AbortSignal.timeout(BAILIAN_TIMEOUT_MS),
+        signal: AbortSignal.timeout(bailianTimeoutMs()),
         body: JSON.stringify({
           model,
           temperature: 0.15,
+          enable_thinking: false,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: `${SYSTEM_PROMPT}\n\n${skillPrompt}` },
@@ -138,8 +147,11 @@ async function compatibleChatEdit({
     );
   } catch (error) {
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      console.info(
+        `[ai] provider=bailian model=${model} thinking=false outcome=timeout elapsedMs=${Date.now() - startedAt}`
+      );
       throw new Error(
-        `百炼响应超时（${BAILIAN_TIMEOUT_MS / 1000} 秒），请重试或改用更简短的指令`
+        `百炼暂时繁忙，${bailianTimeoutMs() / 1000} 秒内未完成响应，请稍后重试`
       );
     }
     throw error;
@@ -148,7 +160,11 @@ async function compatibleChatEdit({
   const result = await response.json();
   const outputText = result.choices?.[0]?.message?.content;
   if (!outputText) throw new Error("百炼没有返回文本内容");
+  console.info(
+    `[ai] provider=bailian model=${model} thinking=false outcome=success elapsedMs=${Date.now() - startedAt} outputTokens=${result.usage?.completion_tokens ?? "?"}`
+  );
   const parsed = parseJsonOutput(outputText);
+  parsed.pml = stripAddedManagedLines(parsed.pml, previousPml);
   validateAiEdit(parsed, previousPml);
   validatePmlSkillEdit({ edit: parsed, previousPml, structures });
   return { ...parsed, mode, model, skills: skills.map(({ id, title }) => ({ id, title })) };
@@ -219,12 +235,14 @@ async function openAiResponsesEdit({
       .find((item) => item.type === "output_text")?.text;
   if (!outputText) throw new Error("OpenAI 没有返回文本内容");
   const parsed = parseJsonOutput(outputText);
+  parsed.pml = stripAddedManagedLines(parsed.pml, previousPml);
   validateAiEdit(parsed, previousPml);
   validatePmlSkillEdit({ edit: parsed, previousPml, structures });
   return { ...parsed, mode: "openai", model, skills: skills.map(({ id, title }) => ({ id, title })) };
 }
 
 function buildContext({ pml, scene, structures }) {
+  const { commands: _duplicateCommands, ...sceneSummary } = scene || {};
   return {
     structures: structures.map(
       ({ filename, objectName, format, sha256, metadata }) => ({
@@ -235,9 +253,29 @@ function buildContext({ pml, scene, structures }) {
         metadata
       })
     ),
-    scene,
+    scene: sceneSummary,
     currentPml: pml
   };
+}
+
+function bailianTimeoutMs() {
+  const configured = Number(process.env.BAILIAN_TIMEOUT_MS);
+  if (!Number.isFinite(configured)) return DEFAULT_BAILIAN_TIMEOUT_MS;
+  return Math.min(120_000, Math.max(5_000, Math.round(configured)));
+}
+
+function stripAddedManagedLines(nextPml, previousPml) {
+  const allowed = new Set(
+    String(previousPml || "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim().startsWith("# @chatpymol"))
+  );
+  return String(nextPml || "")
+    .split(/\r?\n/)
+    .filter(
+      (line) => !line.trim().startsWith("# @chatpymol") || allowed.has(line)
+    )
+    .join("\n");
 }
 
 function parseJsonOutput(text) {
@@ -299,6 +337,57 @@ export function compactLegacyPml(pml) {
   }
 
   return result.join("\n");
+}
+
+function tryInstantWorkspaceAnswer(message, pml) {
+  const text = String(message || "").trim();
+  const lower = text.toLowerCase();
+  const asksAboutFormats =
+    /(?:pdb|mmcif|pml|pse)/i.test(lower) &&
+    /(?:什么|啥|区别|用途|用来|干嘛|含义|格式|文件|what|difference|used for)/i.test(
+      lower
+    ) &&
+    !/(?:改成|设成|显示|隐藏|高亮|测量|对齐|加载|删除|导出|下载)/i.test(
+      lower
+    );
+
+  if (asksAboutFormats) {
+    return {
+      assistantMessage:
+        "简单说：PDB/mmCIF 是原始原子坐标；PML 是可阅读、可修改、可复现配色与显示方式的 PyMOL 命令脚本；PSE 是可直接在桌面 PyMOL 打开的完整会话，会把结构、样式和视角一起保存。",
+      summary: "说明 PDB、PML 与 PSE 的区别",
+      conversationTitle: "文件格式说明",
+      pml,
+      mode: "instant",
+      model: null
+    };
+  }
+
+  const asksForLastCommand =
+    /(?:刚才|上一步|最近).*(?:命令|指令|command)|(?:命令|指令|command).*(?:刚才|上一步|最近)/i.test(
+      lower
+    );
+
+  if (asksForLastCommand) {
+    const command = [...parsePmlCommands(pml)]
+      .reverse()
+      .find(
+        (candidate) =>
+          !/^(?:load|fetch|set_view|viewport|zoom|orient)\b/i.test(candidate)
+      );
+    return {
+      assistantMessage: command
+        ? `当前 PML 中最近的一条场景修改命令是：${command}`
+        : "当前 PML 中还没有可说明的场景修改命令。",
+      summary: "说明最近使用的 PyMOL 命令",
+      conversationTitle: "PyMOL 命令说明",
+      pml,
+      mode: "instant",
+      model: null
+    };
+  }
+
+  return null;
 }
 
 function tryFastColorEdit(message, pml, structures) {

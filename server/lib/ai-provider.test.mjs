@@ -100,6 +100,44 @@ test("simple chain color targets a known chain", async () => {
   assert.match(proposal.summary, /A 链/);
 });
 
+test("file format questions use an instant answer and preserve PML", async () => {
+  let fetchCalled = false;
+  const proposal = await withBailianFetch(
+    async () => {
+      fetchCalled = true;
+      throw new Error("should not call provider");
+    },
+    () => proposePmlEdit(args("PML 和 PSE 是什么？"))
+  );
+
+  assert.equal(fetchCalled, false);
+  assert.equal(proposal.mode, "instant");
+  assert.equal(proposal.pml, compactLegacyPml(BASE_PML));
+  assert.match(proposal.assistantMessage, /原始原子坐标/);
+  assert.match(proposal.assistantMessage, /完整会话/);
+});
+
+test("last command questions use the latest editable PML command", async () => {
+  let fetchCalled = false;
+  const pml = `${BASE_PML}\ncolor green, chain A\n`;
+  const proposal = await withBailianFetch(
+    async () => {
+      fetchCalled = true;
+      throw new Error("should not call provider");
+    },
+    () =>
+      proposePmlEdit({
+        ...args("你刚才用的什么命令？"),
+        pml
+      })
+  );
+
+  assert.equal(fetchCalled, false);
+  assert.equal(proposal.mode, "instant");
+  assert.equal(proposal.pml, compactLegacyPml(pml));
+  assert.match(proposal.assistantMessage, /color green, chain A/);
+});
+
 test("multi-step color request is not swallowed by instant path", async () => {
   let requestBody;
   const proposal = await withBailianFetch(
@@ -114,7 +152,7 @@ test("multi-step color request is not swallowed by instant path", async () => {
                   assistantMessage: "已完成复合视觉修改。",
                   summary: "改色并显示表面",
                   conversationTitle: "复合视觉修改",
-                  pml: `${compactLegacyPml(BASE_PML)}\ncolor pink, all\nshow surface\n`
+                  pml: `${compactLegacyPml(BASE_PML)}\n# @chatpymol structure=fake\ncolor pink, all\nshow surface\n`
                 })
               }
             }
@@ -128,6 +166,8 @@ test("multi-step color request is not swallowed by instant path", async () => {
 
   assert.equal(proposal.mode, "bailian");
   assert.equal(requestBody.model, process.env.BAILIAN_MODEL || "qwen3.7-max");
+  assert.equal(requestBody.enable_thinking, false);
+  assert.doesNotMatch(proposal.pml, /structure=fake/);
   const prompt = requestBody.messages.at(-1).content;
   assert.doesNotMatch(prompt, /_ set_view/);
   assert.match(prompt, /# @chatpymol view-begin/);
@@ -144,7 +184,7 @@ test("Bailian timeout has a clear error and uses an abort signal", async () => {
     async () => {
       await assert.rejects(
         proposePmlEdit(args("请优化一下整体视觉效果")),
-        /百炼响应超时（28 秒）/
+        /百炼暂时繁忙，45 秒内未完成响应/
       );
     }
   );

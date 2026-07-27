@@ -51,6 +51,14 @@ const EN = {
   "下载当前文件": "Download current file",
   "下载 PML": "Download PML",
   "下载 PSE": "Download PSE",
+  "原始结构文件": "Original structure file",
+  "原子坐标，不含配色与视角":
+    "Atomic coordinates without colors or camera",
+  "可复现脚本 PML": "Reproducible PML script",
+  "可阅读可修改的 PyMOL 命令": "Readable, editable PyMOL commands",
+  "完整 PyMOL 会话 PSE": "Complete PyMOL session PSE",
+  "结构、样式与视角一起保存":
+    "Saves structure, styling, and camera together",
   "下载当前 PML": "Download current PML",
   "草稿会同步预览，发送后形成新版本":
     "Draft changes preview automatically; sending creates a version",

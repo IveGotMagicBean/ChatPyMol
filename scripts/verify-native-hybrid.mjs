@@ -84,9 +84,16 @@ if (await page.locator(".clean-scene-statusbar:not(.history)").count()) {
 }
 await pymolToolbar.locator(".native-export-trigger").click();
 const exportPopover = pymolToolbar.locator(".native-export-popover");
-await exportPopover.getByText("下载当前文件", { exact: true }).waitFor();
-await exportPopover.getByText("下载 PML", { exact: true }).waitFor();
-await exportPopover.getByText("下载 PSE", { exact: true }).waitFor();
+for (const text of [
+  "原始结构文件",
+  "原子坐标，不含配色与视角",
+  "可复现脚本 PML",
+  "可阅读可修改的 PyMOL 命令",
+  "完整 PyMOL 会话 PSE",
+  "结构、样式与视角一起保存"
+]) {
+  await exportPopover.getByText(text, { exact: true }).waitFor();
+}
 await pymolToolbar.locator(".native-export-trigger").click();
 
 const githubLink = page.getByLabel("GitHub", { exact: true });

@@ -30,32 +30,49 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #07111f;
-  --panel: #0c1727;
-  --panel-soft: #101d30;
-  --panel-hover: #152641;
-  --text: #eef6ff;
-  --muted: #9cafc8;
-  --quiet: #7186a0;
-  --line: rgba(155, 190, 232, 0.14);
-  --line-strong: rgba(155, 190, 232, 0.26);
-  --accent: #69a8ff;
-  --accent-hover: #8abaff;
-  --accent-soft: rgba(71, 139, 235, 0.18);
-  --accent-text: #8fc1ff;
-  --accent-cyan: #51d1df;
-  --accent-cyan-soft: rgba(48, 190, 207, 0.14);
-  --accent-pink: #f39aba;
-  --accent-pink-soft: rgba(231, 129, 169, 0.14);
-  --danger: #ff9aa8;
-  --danger-bg: #321a25;
-  --code-bg: #07101e;
-  --code-text: #dceaff;
-  --clean-sidebar: #091524;
-  --clean-hover: #142641;
-  --clean-user: #142943;
-  --clean-shadow: 0 1px 2px rgba(0, 0, 0, 0.3),
-    0 12px 32px rgba(0, 0, 0, 0.24);
+  --bg: #03070d;
+  --panel: #080d15;
+  --panel-soft: #0c131d;
+  --panel-hover: #111b29;
+  --text: #edf1f6;
+  --muted: #a0abba;
+  --quiet: #748195;
+  --line: rgba(148, 169, 196, 0.11);
+  --line-strong: rgba(148, 169, 196, 0.2);
+  --accent: #5d9be9;
+  --accent-hover: #74aaf0;
+  --accent-soft: rgba(75, 133, 211, 0.12);
+  --accent-text: #83b2ed;
+  --accent-cyan: #55c5ce;
+  --accent-cyan-soft: rgba(54, 171, 184, 0.11);
+  --accent-pink: #e890b0;
+  --accent-pink-soft: rgba(203, 106, 145, 0.11);
+  --danger: #f094a1;
+  --danger-bg: #28151d;
+  --code-bg: #03070d;
+  --code-text: #dce5f2;
+  --clean-sidebar: #050a11;
+  --clean-hover: #0d1723;
+  --clean-user: #0d1a29;
+  --clean-shadow: 0 1px 2px rgba(0, 0, 0, 0.42),
+    0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme="dark"] .clean-nav {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.015);
+}
+
+:root[data-theme="dark"] .clean-avatar {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="dark"] .conversation-unread-dot {
+  box-shadow: 0 0 0 2px rgba(93, 155, 233, 0.1);
+}
+
+:root[data-theme="dark"] .clean-composer:focus-within {
+  box-shadow: 0 0 0 2px rgba(93, 155, 233, 0.07),
+    var(--clean-shadow);
 }
 
 html,
