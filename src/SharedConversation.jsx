@@ -20,11 +20,7 @@ export function SharedConversation({ shareId }) {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(
-    () =>
-      localStorage.getItem("chatpymol.theme") ||
-      (window.matchMedia?.("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light")
+    () => localStorage.getItem("chatpymol.theme") || "light"
   );
   const [language, setLanguage] = useState(
     () => localStorage.getItem("chatpymol.language") || "zh"

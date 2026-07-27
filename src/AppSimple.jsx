@@ -57,11 +57,7 @@ export function AppSimple() {
   const [provider, setProvider] = useState({ aiMode: "local", model: "本地规则" });
   const [conversations, setConversations] = useState([]);
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem("chatpymol.theme");
-    if (saved) return saved;
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return localStorage.getItem("chatpymol.theme") || "light";
   });
   const [language, setLanguage] = useState(() => localStorage.getItem("chatpymol.language") || "zh");
   const [leftWidth, setLeftWidth] = useState(() => Number(localStorage.getItem("chatpymol.left-width")) || 255);
