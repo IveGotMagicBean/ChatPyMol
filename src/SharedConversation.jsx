@@ -20,7 +20,7 @@ export function SharedConversation({ shareId }) {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(
-    () => localStorage.getItem("chatpymol.theme") || "light"
+    () => localStorage.getItem("chatpymol.theme.v2") || "light"
   );
   const [language, setLanguage] = useState(
     () => localStorage.getItem("chatpymol.language") || "zh"
@@ -30,7 +30,7 @@ export function SharedConversation({ shareId }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("chatpymol.theme", theme);
+    localStorage.setItem("chatpymol.theme.v2", theme);
   }, [theme]);
 
   useEffect(() => {

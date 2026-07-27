@@ -93,7 +93,7 @@ export function AppClean() {
   const [autoSaveError, setAutoSaveError] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [theme, setTheme] = useState(
-    () => localStorage.getItem("chatpymol.theme") || "light"
+    () => localStorage.getItem("chatpymol.theme.v2") || "light"
   );
   const [language, setLanguage] = useState(
     () => localStorage.getItem("chatpymol.language") || "zh"
@@ -364,7 +364,7 @@ export function AppClean() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("chatpymol.theme", theme);
+    localStorage.setItem("chatpymol.theme.v2", theme);
   }, [theme]);
 
   useEffect(() => {

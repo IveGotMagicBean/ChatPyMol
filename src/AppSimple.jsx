@@ -57,7 +57,7 @@ export function AppSimple() {
   const [provider, setProvider] = useState({ aiMode: "local", model: "本地规则" });
   const [conversations, setConversations] = useState([]);
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("chatpymol.theme") || "light";
+    return localStorage.getItem("chatpymol.theme.v2") || "light";
   });
   const [language, setLanguage] = useState(() => localStorage.getItem("chatpymol.language") || "zh");
   const [leftWidth, setLeftWidth] = useState(() => Number(localStorage.getItem("chatpymol.left-width")) || 255);
@@ -106,7 +106,7 @@ export function AppSimple() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("chatpymol.theme", theme);
+    localStorage.setItem("chatpymol.theme.v2", theme);
   }, [theme]);
 
   useEffect(() => {
