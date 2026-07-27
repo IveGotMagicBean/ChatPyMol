@@ -2,6 +2,8 @@
 
 一个在浏览器里运行的 AI–人工协同分子可视化工作台。自然语言、PyMOL 原生界面、CLI、Codex 和 Claude Code 共同维护同一条可追溯的场景版本链。
 
+**在线体验：[chatpymol.com](https://chatpymol.com)** · [GitHub](https://github.com/IveGotMagicBean/ChatPyMol) · [提交建议](https://github.com/IveGotMagicBean/ChatPyMol/issues)
+
 ## 复制给 Codex，一键接入
 
 把下面整段 Prompt 复制到 Codex。它会安装 CLI、插件与 MCP，并在你的电脑上启动只监听 `127.0.0.1` 的私有 ChatPyMOL；不需要 ChatPyMOL 云服务或浏览器配对：
