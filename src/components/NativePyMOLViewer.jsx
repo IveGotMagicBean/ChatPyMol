@@ -235,6 +235,7 @@ export function NativePyMOLViewer({
   onDownloadStructure,
   onDownloadPml,
   onNativeCommands,
+  readOnly = false,
   language,
   t = (value) => value
 }) {
@@ -1381,25 +1382,29 @@ _p.draw()
           )}
         </div>
         <div className="native-pymol-toolbar-actions">
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={!isReady || !canUndo}
-            title={t("撤销")}
-            aria-label={t("撤销")}
-          >
-            <Undo2 size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={onRedo}
-            disabled={!isReady || !canRedo}
-            title={t("重做")}
-            aria-label={t("重做")}
-          >
-            <Redo2 size={14} />
-          </button>
-          <i className="native-toolbar-divider" />
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                onClick={onUndo}
+                disabled={!isReady || !canUndo}
+                title={t("撤销")}
+                aria-label={t("撤销")}
+              >
+                <Undo2 size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={onRedo}
+                disabled={!isReady || !canRedo}
+                title={t("重做")}
+                aria-label={t("重做")}
+              >
+                <Redo2 size={14} />
+              </button>
+              <i className="native-toolbar-divider" />
+            </>
+          )}
           <button
             type="button"
             className={sequenceVisible ? "active" : ""}
@@ -1742,25 +1747,27 @@ _p.draw()
         )}
       </div>
 
-      <form className="native-pymol-command" onSubmit={executeCommand}>
-        <TerminalSquare size={14} />
-        <span>PyMOL&gt;</span>
-        <input
-          ref={commandInputRef}
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          placeholder={t("输入支持的 PyMOL 2 命令")}
-          disabled={!isReady}
-          spellCheck="false"
-        />
-        <button
-          type="submit"
-          disabled={!command.trim() || !isReady}
-          aria-label={t("执行命令")}
-        >
-          <Play size={13} />
-        </button>
-      </form>
+      {!readOnly && (
+        <form className="native-pymol-command" onSubmit={executeCommand}>
+          <TerminalSquare size={14} />
+          <span>PyMOL&gt;</span>
+          <input
+            ref={commandInputRef}
+            value={command}
+            onChange={(event) => setCommand(event.target.value)}
+            placeholder={t("输入支持的 PyMOL 2 命令")}
+            disabled={!isReady}
+            spellCheck="false"
+          />
+          <button
+            type="submit"
+            disabled={!command.trim() || !isReady}
+            aria-label={t("执行命令")}
+          >
+            <Play size={13} />
+          </button>
+        </form>
+      )}
     </div>
   );
 }

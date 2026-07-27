@@ -7,6 +7,7 @@ import {
   Github,
   History,
   Languages,
+  Link2,
   LoaderCircle,
   Mail,
   Menu,
@@ -20,6 +21,8 @@ import {
   PinOff,
   Plus,
   Send,
+  Share2,
+  ShieldAlert,
   Sun,
   SquareTerminal,
   Trash2,
@@ -45,12 +48,14 @@ const CODEX_INSTALL_PROMPT_ZH = `请帮我安装并连接 ChatPyMOL 的 Codex �
 请先阅读仓库中的 docs/cli-codex-claude.zh-CN.md，然后按以下要求操作：
 1. 在安全的本地目录克隆或更新仓库，并确认 Node.js 版本不低于 22；
 2. 在仓库根目录运行 npm ci --ignore-scripts、npm run build 和 npm install -g .；
-3. 询问我的 ChatPyMOL 服务地址，再运行 chatpymol pair --base-url <服务地址>。需要浏览器确认时暂停，把配对链接交给我；不要输出、记录或提交匿名工作区令牌；
-4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；
-5. 使用 chatpymol status、codex plugin list 和 codex mcp list 验证安装结果；
-6. 完成后提醒我重启 Codex，并在新会话中使用 /mcp 确认 chatpymol 已连接。
+3. 若仓库根目录已有我填写的 .env，运行 chatpymol local start --open --env-file "$PWD/.env"；否则运行 chatpymol local start --open。确认服务只绑定 127.0.0.1，不要改成 0.0.0.0；
+4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；不要修改外部个人 marketplace 文件；
+5. 使用 chatpymol local status、codex plugin list 和 codex mcp list 验证安装结果；
+6. 完成后提醒我重启 Codex，在新会话中用 /hooks 审查并信任 ChatPyMOL hooks，再用 /mcp 确认连接。
 
-不要修改任何蛋白场景，除非我随后明确提出修改要求。`;
+一个 Codex 主会话必须绑定一个本地 ChatPyMOL Session，/resume 复用原绑定。禁止读取 transcript_path 或同步整段对话；只保存 ChatPyMOL 工具操作和明确分子请求的主题摘要。
+
+不要询问 ChatPyMOL 服务地址。不要修改任何蛋白场景，除非我随后明确提出修改要求。`;
 const CODEX_INSTALL_PROMPT_EN = `Help me install and connect the ChatPyMOL plugin for Codex.
 
 Repository: https://github.com/IveGotMagicBean/ChatPyMol
@@ -58,14 +63,16 @@ Repository: https://github.com/IveGotMagicBean/ChatPyMol
 Read docs/cli-codex-claude.zh-CN.md in the repository first, then:
 1. Clone or update the repository in a safe local directory and verify Node.js 22 or newer;
 2. From the repository root, run npm ci --ignore-scripts, npm run build, and npm install -g .;
-3. Ask me for my ChatPyMOL service URL, then run chatpymol pair --base-url <service-url>. Pause when browser confirmation is required and give me the pairing link. Never print, log, or commit the anonymous workspace token;
-4. From the repository root, run codex plugin marketplace add "$PWD/integrations/codex" and codex plugin add chatpymol@chatpymol-local;
-5. Verify the setup with chatpymol status, codex plugin list, and codex mcp list;
-6. Remind me to restart Codex, then use /mcp in a new session to confirm that chatpymol is connected.
+3. If the repository already has my completed .env, run chatpymol local start --open --env-file "$PWD/.env"; otherwise run chatpymol local start --open. Verify that it binds only to 127.0.0.1, never 0.0.0.0;
+4. From the repository root, run codex plugin marketplace add "$PWD/integrations/codex" and codex plugin add chatpymol@chatpymol-local. Do not edit any external personal marketplace file;
+5. Verify the setup with chatpymol local status, codex plugin list, and codex mcp list;
+6. Remind me to restart Codex, review and trust the ChatPyMOL hooks with /hooks, then confirm the connection with /mcp.
 
-Do not modify any molecular scene unless I explicitly ask you to do so afterward.`;
+Bind one private local ChatPyMOL Session per Codex main session and reuse it after /resume. Never read transcript_path or sync full conversations; persist only ChatPyMOL tool operations and topic-only summaries of explicit molecular requests.
+
+Do not ask for a ChatPyMOL service URL. Do not modify any molecular scene unless I explicitly ask afterward.`;
 const CONVERSATION_MENU_WIDTH = 145;
-const CONVERSATION_MENU_HEIGHT = 108;
+const CONVERSATION_MENU_HEIGHT = 144;
 const CONVERSATION_MENU_GAP = 4;
 const CONVERSATION_MENU_MARGIN = 8;
 const NATIVE_AUTO_SAVE_DELAY_MS = 1400;
@@ -123,6 +130,8 @@ export function AppClean() {
   const [emailCopyStatus, setEmailCopyStatus] = useState("idle");
   const [codexDialogOpen, setCodexDialogOpen] = useState(false);
   const [codexCopyStatus, setCodexCopyStatus] = useState("idle");
+  const [shareDialog, setShareDialog] = useState(null);
+  const [shareCopyStatus, setShareCopyStatus] = useState("idle");
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const renderTimerRef = useRef(null);
@@ -1073,6 +1082,75 @@ export function AppClean() {
     }
   }
 
+  function openShareDialog(conversation) {
+    setMenuId(null);
+    setShareCopyStatus("idle");
+    setShareDialog({
+      conversation,
+      phase: conversation.share ? "ready" : "confirm"
+    });
+  }
+
+  async function createOrRefreshShare() {
+    const conversation = shareDialog?.conversation;
+    if (!conversation || busy) return;
+    setBusy(`share:${conversation.id}`);
+    setShareDialog((current) => ({ ...current, phase: "creating" }));
+    try {
+      if (workspace.project.id === conversation.id) await flushNativeDraft();
+      const result = await api.createShare(conversation.id);
+      const updated =
+        result.projects.find((item) => item.id === conversation.id) || {
+          ...conversation,
+          share: result.share
+        };
+      setConversations(result.projects);
+      setShareDialog({ conversation: updated, phase: "ready" });
+      setShareCopyStatus("idle");
+    } catch (reason) {
+      setError(reason.message);
+      setShareDialog((current) => ({
+        ...current,
+        phase: current?.conversation.share ? "ready" : "confirm"
+      }));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function stopSharing() {
+    const conversation = shareDialog?.conversation;
+    if (!conversation || busy) return;
+    if (
+      !window.confirm(
+        t("停止分享后，任何人都无法再通过原链接查看。确定停止吗？")
+      )
+    ) return;
+    setBusy(`unshare:${conversation.id}`);
+    try {
+      const result = await api.revokeShare(conversation.id);
+      setConversations(result.projects);
+      setShareDialog(null);
+      setShareCopyStatus("idle");
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copyShareLink() {
+    const sharePath = shareDialog?.conversation?.share?.path;
+    if (!sharePath) return;
+    try {
+      const shareUrl = new URL(sharePath, window.location.origin).href;
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopyStatus("copied");
+    } catch {
+      setShareCopyStatus("failed");
+    }
+  }
+
   async function sendMessage(event) {
     event?.preventDefault();
     const message = chatInput.trim();
@@ -1743,6 +1821,14 @@ export function AppClean() {
             <button
               type="button"
               role="menuitem"
+              onClick={() => openShareDialog(menuConversation)}
+            >
+              <Share2 size={14} />
+              {t(menuConversation.share ? "管理分享" : "分享")}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
               onClick={() => togglePinned(menuConversation)}
             >
               {menuConversation.pinned ? (
@@ -1761,6 +1847,150 @@ export function AppClean() {
               <Trash2 size={14} />
               {t("删除")}
             </button>
+          </div>,
+          document.body
+        )}
+      {shareDialog &&
+        createPortal(
+          <div
+            className="clean-dialog-backdrop"
+            onPointerDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              setShareDialog(null);
+              setShareCopyStatus("idle");
+            }}
+          >
+            <section
+              className="clean-share-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="chatpymol-share-title"
+            >
+              <div className="clean-share-heading">
+                <span className="clean-share-icon">
+                  <Share2 size={18} />
+                </span>
+                <div>
+                  <h2 id="chatpymol-share-title">{t("分享对话")}</h2>
+                  <p>{shareDialog.conversation.title}</p>
+                </div>
+                <button
+                  type="button"
+                  className="clean-codex-close"
+                  onClick={() => {
+                    setShareDialog(null);
+                    setShareCopyStatus("idle");
+                  }}
+                  aria-label={t("关闭")}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="clean-share-warning">
+                <ShieldAlert size={18} />
+                <div>
+                  <strong>{t("任何获得链接的人都可以查看")}</strong>
+                  <p>
+                    {t(
+                      "分享内容包括这个对话中的消息、蛋白结构和场景版本。请勿分享含有未公开或敏感数据的对话。"
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {shareDialog.phase === "ready" ? (
+                <>
+                  <div className="clean-share-link-row">
+                    <Link2 size={15} />
+                    <input
+                      readOnly
+                      value={new URL(
+                        shareDialog.conversation.share.path,
+                        window.location.origin
+                      ).href}
+                      aria-label={t("分享链接")}
+                    />
+                    <button type="button" onClick={copyShareLink}>
+                      {shareCopyStatus === "copied" ? (
+                        <Check size={14} />
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                      {t(
+                        shareCopyStatus === "copied"
+                          ? "已复制"
+                          : shareCopyStatus === "failed"
+                            ? "复制失败"
+                            : "复制链接"
+                      )}
+                    </button>
+                  </div>
+                  <p className="clean-share-note">
+                    {t(
+                      "这是当前时点的只读快照；之后的修改不会自动同步。你可以随时更新内容或停止分享。"
+                    )}
+                  </p>
+                  <div className="clean-share-actions split">
+                    <button
+                      type="button"
+                      className="share-stop"
+                      onClick={stopSharing}
+                      disabled={Boolean(busy)}
+                    >
+                      {busy.startsWith("unshare:") && (
+                        <LoaderCircle className="spin" size={14} />
+                      )}
+                      {t("停止分享")}
+                    </button>
+                    <div>
+                      <a
+                        href={shareDialog.conversation.share.path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {t("打开分享页")}
+                      </a>
+                      <button
+                        type="button"
+                        className="share-primary"
+                        onClick={createOrRefreshShare}
+                        disabled={Boolean(busy)}
+                      >
+                        {busy.startsWith("share:") && (
+                          <LoaderCircle className="spin" size={14} />
+                        )}
+                        {t("更新分享内容")}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="clean-share-note">
+                    {t(
+                      "将创建一个仅包含此对话当前内容的公开只读快照，不会分享你的其他对话或设备标识。"
+                    )}
+                  </p>
+                  <div className="clean-share-actions">
+                    <button type="button" onClick={() => setShareDialog(null)}>
+                      {t("取消")}
+                    </button>
+                    <button
+                      type="button"
+                      className="share-primary"
+                      onClick={createOrRefreshShare}
+                      disabled={shareDialog.phase === "creating"}
+                    >
+                      {shareDialog.phase === "creating" && (
+                        <LoaderCircle className="spin" size={14} />
+                      )}
+                      {t("创建公开链接")}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
           </div>,
           document.body
         )}
@@ -1790,7 +2020,7 @@ export function AppClean() {
                   </h2>
                   <p>
                     {t(
-                      "复制下面的 Prompt 给 Codex，它会完成 CLI、插件、MCP 与浏览器配对。"
+                      "复制下面的 Prompt 给 Codex，它会在本机完成 CLI、插件、MCP 与私有工作区设置。"
                     )}
                   </p>
                 </div>

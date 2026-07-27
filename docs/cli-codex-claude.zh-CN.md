@@ -17,49 +17,47 @@ Codex / Claude Code / ChatPyMOL CLI
 
 本文对应 ChatPyMOL CLI、MCP 服务与 Codex/Claude 插件 `0.2.0`。
 
-## 1. 启动服务
+## 1. Codex 默认：本机私有运行
 
-在项目根目录执行：
+先在项目根目录安装 CLI，再用一个命令启动后台服务和浏览器：
 
 ```bash
 npm ci --ignore-scripts
 npm run build
-npm start
-```
-
-默认地址是 `http://127.0.0.1:8787`。开发模式可用 `npm run dev`。
-
-## 2. 浏览器匿名配对
-
-Codex 和 Claude 插件默认通过系统 `PATH` 中的 `chatpymol mcp` 启动，因此先从项目根目录安装 CLI：
-
-```bash
-npm run build
 npm install -g .
+chatpymol local start --open --env-file "$PWD/.env"  # 已有 .env 时
 ```
 
-CLI 和 MCP 使用浏览器匿名工作区令牌，不需要账号登录。执行：
+本地服务默认只绑定 `127.0.0.1:8787`，不会监听局域网或公网，也不依赖 ChatPyMOL 云端。常用管理命令：
 
 ```bash
-chatpymol pair --base-url http://127.0.0.1:8787
+chatpymol local status
+chatpymol local open
+chatpymol local stop
+```
+
+`stop` 只停止经实例 ID 验证的 ChatPyMOL 进程，不删除数据。端口冲突时可运行 `chatpymol local start --port 8788`。Linux 默认目录为：
+
+```text
+数据：$XDG_DATA_HOME/chatpymol/data（默认 ~/.local/share/chatpymol/data）
+状态、PID、日志：$XDG_STATE_HOME/chatpymol（默认 ~/.local/state/chatpymol）
+CLI 配置：$XDG_CONFIG_HOME/chatpymol/config.json（默认 ~/.config/chatpymol/config.json）
+模型配置：$XDG_CONFIG_HOME/chatpymol/.env（也可由 --env-file 指定）
+```
+
+macOS 使用 `~/Library/Application Support/ChatPyMOL`，Windows 使用 `%LOCALAPPDATA%\ChatPyMOL`。凭据文件权限设置为仅当前用户可读写。服务进程、数据、浏览器和 MCP 都在用户自己的机器上。源码开发模式仍可运行 `npm run dev`；手动前台生产模式仍可运行 `npm start`。
+
+## 2. 可选：连接云端或实验室 LAN 服务
+
+`pair/connect` 仍完整保留，供网页部署、团队服务器和 Claude Code 使用。它不是 Codex 插件的默认路径。目标服务启动后执行：
+
+```bash
+chatpymol pair --base-url https://你的-chatpymol-服务
 ```
 
 根据终端给出的地址在浏览器完成一次配对。CLI 默认等待浏览器确认，然后把令牌保存到 `$XDG_CONFIG_HOME/chatpymol/config.json`；未设置 `XDG_CONFIG_HOME` 时保存到 `~/.config/chatpymol/config.json`。脚本模式可用 `--no-wait --json`，它会返回一次性的 `pollSecret`，调用方必须像令牌一样安全保存。令牌是访问该匿名工作区的凭据，不要提交到 Git、聊天截图或公开日志。
 
-连接值按以下优先级解析：显式命令行参数（例如 `--base-url`、`--token`、`--config`）> 对应环境变量 > `pair` 保存的配置 > 默认值。`CHATPYMOL_CONFIG` 可指定另一份配置文件；显式 `--config` 优先。环境变量不会被 `pair` 改写，因此重新配对到另一台服务器或另一个浏览器工作区前，先执行：
-
-```bash
-unset CHATPYMOL_TOKEN CHATPYMOL_BASE_URL
-chatpymol pair --base-url http://127.0.0.1:8787
-```
-
-否则旧的环境变量仍会优先于刚配对保存的新 token/地址。需要在一次命令中临时覆盖时，直接传显式 flag。
-
-开发时不想全局安装，也可以直接执行：
-
-```bash
-node bin/chatpymol.mjs pair --base-url http://127.0.0.1:8787
-```
+连接值优先级为：显式命令行参数 > 环境变量 > `pair` 保存的配置 > 默认值。重新配对前应清理旧 `CHATPYMOL_TOKEN`/`CHATPYMOL_BASE_URL`。开发时可直接运行 `node bin/chatpymol.mjs pair --base-url <地址>`。
 
 ## 3. CLI 使用
 
@@ -74,7 +72,7 @@ chatpymol open --session prj_... --launch
 
 `open` 默认只把浏览器深链打印到终端，便于 Codex/Claude 或远程 SSH 环境继续处理；只有显式添加 `--launch` 才会尝试启动本机浏览器。
 
-CLI 提供 `pair`、`status`、`sessions`、`show`、`objects`、`create`、`select`、`apply`、`fetch`、`upload`、`version`、`open`、`export`、`exports` 与 `mcp`。用 `--help` 查看当前版本的精确参数：
+CLI 还提供 `local start/stop/status/open` 与 `codex sessions/open`；其他命令包括 `pair`、`status`、`sessions`、`show`、`objects`、`create`、`select`、`apply`、`fetch`、`upload`、`version`、`open`、`export`、`exports` 与 `mcp`。用 `--help` 查看当前版本的精确参数：
 
 ```bash
 chatpymol --help
@@ -110,23 +108,23 @@ chatpymol apply --session prj_... --base-version v000017_... \
 
 ### CLI-first：用本地 stdio 启动 MCP
 
-两个插件默认就是这个模式：客户端启动 `chatpymol mcp`，CLI 读取上一节 `pair` 保存的同一份凭据，不需要在插件 JSON 或 shell 中填写 token。如果不安装插件，只想手工注册 MCP，可运行：
+Codex 插件默认启动 `chatpymol mcp --local`：若后台未运行会自动启动本机私有服务，并读取受保护的本地凭据。没有插件 hooks 时也可手工注册：
 
 Codex：
 
 ```bash
 codex mcp add --env CHATPYMOL_SOURCE=codex chatpymol \
-  -- chatpymol mcp
+  -- chatpymol mcp --local
 ```
 
-Claude Code：
+Claude Code 默认继续使用已经 `pair` 的目标；需要它也使用本机私有服务时追加 `--local`：
 
 ```bash
 claude mcp add --transport stdio --env CHATPYMOL_SOURCE=claude chatpymol \
-  -- chatpymol mcp
+  -- chatpymol mcp --local
 ```
 
-没有全局安装时，把命令部分换成绝对路径，例如 `-- node "$PWD/bin/chatpymol.mjs" mcp`。stdio 与远程 HTTP MCP 都指向同一服务器数据和版本链；对同一客户端选择一种即可，避免同时注册两个同名 `chatpymol`。
+没有全局安装时，把命令部分换成绝对路径，例如 `-- node "$PWD/bin/chatpymol.mjs" mcp --local`。stdio 与远程 HTTP MCP 使用相同工具契约；对同一客户端选择一种即可，避免同时注册两个同名 `chatpymol`。
 
 ## 4. Codex 接入
 
@@ -136,7 +134,7 @@ claude mcp add --transport stdio --env CHATPYMOL_SOURCE=claude chatpymol \
 integrations/codex/plugins/chatpymol
 ```
 
-它已经包含 `.codex-plugin/plugin.json`、MCP 配置与 `$chatpymol-collaboration` 技能。项目内 marketplace 位于 `integrations/codex/marketplace.json`；本项目没有擅自写入个人 marketplace 或安装配置。
+它已经包含 `.codex-plugin/plugin.json`、本地 MCP 配置、`hooks/hooks.json` 与 `$chatpymol-collaboration` 技能。项目内 marketplace 位于 `integrations/codex/marketplace.json`；本项目没有擅自写入个人 marketplace 或安装配置。
 
 从项目根目录安装这个本地包：
 
@@ -145,11 +143,20 @@ codex plugin marketplace add "$PWD/integrations/codex"
 codex plugin add chatpymol@chatpymol-local
 ```
 
-安装后重启 Codex，通过 `/mcp` 确认 `chatpymol` 已连接，再直接使用 `$chatpymol-collaboration`。
+安装后重启 Codex。首次使用 `/hooks` 审查并信任插件 hooks，再通过 `/mcp` 确认 `chatpymol` 已连接，然后直接使用 `$chatpymol-collaboration`。修改插件 hooks 后，它们的哈希会变化，需要重新审查。
 
-插件内 MCP 默认执行 `chatpymol mcp`，基础地址和匿名令牌来自本机配对配置。即使服务部署到另一台机器，也只需重新运行一次 `chatpymol pair --base-url <地址>`，不用改插件。
+插件内 MCP 默认执行 `chatpymol mcp --local`。`SessionStart` 使用官方稳定的 `session_id` 与 `cwd` 创建绑定，`/resume` 的同一 `session_id` 会复用原 ChatPyMOL Session；不同 Codex 主会话映射到不同 Session。同一 Session 可包含任意多个结构对象。
 
-如果只想调试 MCP、不安装插件，也可以单独加入 Codex：
+`UserPromptSubmit` 只在用户明确谈到蛋白、核酸、配体、PyMOL 等分子主题时记录脱敏主题摘要；普通代码对话不落盘。插件不会读取 `transcript_path`，也不会保存原始 Codex `session_id` 或完整工作目录。`PreToolUse` 在调用 `mcp__chatpymol__*` 前给缺少 `sessionId` 的工具参数注入当前绑定；显式指定的 Session 不会被覆盖。
+
+```bash
+chatpymol codex sessions
+chatpymol codex open --binding <会话哈希前缀>
+```
+
+浏览器深链直接定位绑定 Session。结构一旦在浏览器、`fetch_pdb` 或 `upload_structure` 中载入，下一轮会重新读取同一份本地结构和最新 PML，无需重复上传。
+
+如果明确要连接远程服务，可不使用插件的 `--local` MCP，改为单独注册远程 HTTP MCP：
 
 ```bash
 export CHATPYMOL_TOKEN='配对后得到的令牌'
@@ -165,7 +172,7 @@ http_headers = { "x-chatpymol-source" = "codex" }
 default_tools_approval_mode = "writes"
 ```
 
-远程 HTTP 直连的完整模板见 `integrations/codex/config.toml.example`。Codex 的这个配置使用固定 `url`、`bearer_token_env_var` 与 `http_headers`，不沿用 Claude Code 的 `${VAR:-default}`/`headers` 结构。如暂未安装插件，可把技能目录链接到当前仓库的技能发现目录：
+远程 HTTP 直连的完整模板见 `integrations/codex/config.toml.example`。远程模式不会自动获得本地插件的会话绑定，应继续显式传 `sessionId`。Codex 的这个配置使用固定 `url`、`bearer_token_env_var` 与 `http_headers`，不沿用 Claude Code 的 `${VAR:-default}`/`headers` 结构。如暂未安装插件，可把技能目录链接到当前仓库的技能发现目录：
 
 ```bash
 mkdir -p .agents/skills
@@ -176,8 +183,8 @@ ln -s "$PWD/integrations/codex/plugins/chatpymol/skills/chatpymol-collaboration"
 重启 Codex 后，可以说：
 
 ```text
-使用 $chatpymol-collaboration，列出我的 Session，打开“溶菌酶比较”，
-把 1AKI 与 1LYZ 对齐并用两种柔和颜色区分，然后给我浏览器链接。
+使用 $chatpymol-collaboration，在这个 Codex 会话绑定的本地工作区中载入
+1AKI 与 1LYZ，对齐后用两种柔和颜色区分，然后打开浏览器。
 ```
 
 ## 5. Claude Code 接入

@@ -26,6 +26,11 @@ const envFile = explicitEnvFile
 dotenv.config({ path: envFile, quiet: true });
 const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || "0.0.0.0";
+const localMode = process.env.CHATPYMOL_LOCAL_MODE === "1";
+const localDeviceToken = String(
+  process.env.CHATPYMOL_LOCAL_DEVICE_TOKEN || ""
+).trim();
+const instanceId = String(process.env.CHATPYMOL_INSTANCE_ID || "").trim() || null;
 const maxUploadMb = Number(process.env.MAX_UPLOAD_MB || 50);
 const eventHub = new WorkspaceEventHub();
 const store = new FileStore(process.env.DATA_DIR || path.join(root, "data"), {
@@ -89,6 +94,8 @@ const OFFICIAL_EXAMPLE_PML_MARKER =
 app.get("/api/health", (_request, response) => {
   response.json({
     ok: true,
+    localMode,
+    instanceId,
     aiMode: process.env.DASHSCOPE_API_KEY ? "bailian" : process.env.OPENAI_API_KEY ? "openai" : "local",
     model: process.env.DASHSCOPE_API_KEY ? (process.env.BAILIAN_MODEL || "qwen3.7-max") : (process.env.OPENAI_MODEL || "gpt-5.6-terra"),
     renderer: "pymol-open-source-2.6-wasm"
@@ -106,7 +113,8 @@ app.post(
 app.post(
   "/api/integrations/pair/complete",
   asyncRoute(async (request, response) => {
-    const deviceToken = request.body?.deviceToken;
+    const deviceToken =
+      localDeviceTokenForRequest(request) || request.body?.deviceToken;
     store.deviceId(deviceToken);
     await store.listProjects(deviceToken);
     response.json(pairingBroker.complete(request.body?.code, deviceToken));
@@ -135,7 +143,7 @@ app.get(
 
 app.post("/mcp", async (request, response) => {
   try {
-    const token = bearerToken(request);
+    const token = localDeviceTokenForRequest(request) || bearerToken(request);
     store.deviceId(token);
     await store.listProjects(token);
     const service = new LocalChatPymolService({
@@ -178,10 +186,48 @@ app.delete("/mcp", (_request, response) => {
   });
 });
 
+app.get(
+  "/api/shares/:shareId",
+  asyncRoute(async (request, response) => {
+    const snapshot = await store.getShare(request.params.shareId);
+    response
+      .set("cache-control", "private, no-store, max-age=0")
+      .set("x-robots-tag", "noindex, nofollow, noarchive")
+      .json({
+        ...snapshot,
+        structures: snapshot.structures.map(({ storageName, ...structure }) => ({
+          ...structure,
+          url: `/api/shares/${snapshot.share.id}/structures/${structure.id}`
+        }))
+      });
+  })
+);
+
+app.get(
+  "/api/shares/:shareId/structures/:structureId",
+  asyncRoute(async (request, response) => {
+    const result = await store.sharedStructurePath(
+      request.params.shareId,
+      request.params.structureId
+    );
+    if (!result) {
+      const error = new Error("分享的结构文件不存在");
+      error.status = 404;
+      throw error;
+    }
+    response
+      .set("cache-control", "private, no-store, max-age=0")
+      .set("x-robots-tag", "noindex, nofollow, noarchive")
+      .type(path.extname(result.structure.filename) || "application/octet-stream")
+      .sendFile(result.path);
+  })
+);
+
 app.post(
   "/api/bootstrap",
   asyncRoute(async (request, response) => {
-    const token = request.body?.deviceToken;
+    const token =
+      localDeviceTokenForRequest(request) || request.body?.deviceToken;
     const payload = await store.withDeviceLock(token, async () => {
       const initial = await store.bootstrap(token, {
         _deviceLockHeld: true
@@ -383,6 +429,74 @@ app.use("/api", (request, _response, next) => {
   store.deviceId(request.deviceToken);
   next();
 });
+
+app.post(
+  "/api/integrations/codex/prompt-event",
+  asyncRoute(async (request, response) => {
+    const sessionId = String(request.body?.sessionId || "");
+    const workspace = await store.getWorkspace(request.deviceToken, sessionId);
+    const turnHash = cleanHash(request.body?.turnHash);
+    const duplicate = turnHash
+      ? workspace.events.find(
+          (event) =>
+            event.kind === "codex.prompt.summary" &&
+            event.turnHash === turnHash
+        )
+      : null;
+    if (duplicate) {
+      response.json({ recorded: false, duplicate: true, event: duplicate });
+      return;
+    }
+    const topics = Array.isArray(request.body?.topics)
+      ? request.body.topics
+          .map((item) => String(item || "").trim().slice(0, 24))
+          .filter(Boolean)
+          .slice(0, 8)
+      : [];
+    const summary =
+      String(request.body?.summary || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 240) || "Codex 中的分子相关请求";
+    const event = await store.appendEvent(request.deviceToken, sessionId, {
+      kind: "codex.prompt.summary",
+      actor: "human",
+      source: "codex-hook",
+      versionId: workspace.version?.id || null,
+      summary,
+      topics,
+      turnHash,
+      codexSessionHash: cleanHash(request.body?.codexSessionHash),
+      characterCount: Math.max(
+        0,
+        Math.min(1_000_000, Number(request.body?.characterCount) || 0)
+      )
+    });
+    const message = await store.appendMessage(request.deviceToken, sessionId, {
+      role: "user",
+      content: summary,
+      mode: "codex-prompt-summary",
+      source: "codex-hook",
+      versionId: workspace.version?.id || null,
+      structureIds: []
+    });
+    await store.notifyWorkspaceUpdated(request.deviceToken, {
+      type: "workspace.updated",
+      action: "codex.prompt.summary",
+      projectId: sessionId,
+      sessionId,
+      conversationId: sessionId,
+      versionId: workspace.version?.id || null,
+      revision: workspace.version?.revision || null,
+      objectIds: workspace.structures.map((item) => item.id),
+      source: "codex-hook",
+      actor: "human",
+      clientId: requestClientId(request),
+      updatedAt: new Date().toISOString()
+    });
+    response.status(201).json({ recorded: true, event, message });
+  })
+);
 app.get("/api/recommendations", (_request, response) => {
   response.json({ recommendations: PROTEIN_RECOMMENDATIONS });
 });
@@ -524,6 +638,34 @@ app.post(
       updatedAt: new Date().toISOString()
     });
     response.status(201).json(workspace);
+  })
+);
+
+app.post(
+  "/api/projects/:projectId/share",
+  asyncRoute(async (request, response) => {
+    const result = await store.createShare(
+      request.deviceToken,
+      request.params.projectId
+    );
+    response.status(201).json({
+      share: result.share,
+      ...(await store.listProjects(request.deviceToken))
+    });
+  })
+);
+
+app.delete(
+  "/api/projects/:projectId/share",
+  asyncRoute(async (request, response) => {
+    const result = await store.revokeShare(
+      request.deviceToken,
+      request.params.projectId
+    );
+    response.json({
+      ...result,
+      ...(await store.listProjects(request.deviceToken))
+    });
   })
 );
 
@@ -947,6 +1089,12 @@ app.get(
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(root, "dist")));
+  app.get("/share/:shareId", (_request, response) =>
+    response
+      .set("cache-control", "private, no-store, max-age=0")
+      .set("x-robots-tag", "noindex, nofollow, noarchive")
+      .sendFile(path.join(root, "dist", "index.html"))
+  );
   app.get("/{*splat}", (_request, response) =>
     response.sendFile(path.join(root, "dist", "index.html"))
   );
@@ -970,9 +1118,29 @@ function asyncRoute(handler) {
 }
 
 function deviceTokenFromRequest(request, { allowQuery = false } = {}) {
+  const localToken = localDeviceTokenForRequest(request);
+  if (localToken) return localToken;
   const headerToken = request.get("x-device-token");
   const queryToken = allowQuery ? request.query?.deviceToken : null;
   return headerToken || bearerToken(request, false) || queryToken;
+}
+
+function localDeviceTokenForRequest(request) {
+  if (!localMode || !localDeviceToken) return null;
+  const address = String(request.socket?.remoteAddress || "");
+  if (
+    address === "127.0.0.1" ||
+    address === "::1" ||
+    address === "::ffff:127.0.0.1"
+  ) {
+    return localDeviceToken;
+  }
+  return null;
+}
+
+function cleanHash(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return /^[a-f0-9]{16,64}$/.test(text) ? text : null;
 }
 
 function bearerToken(request, required = true) {

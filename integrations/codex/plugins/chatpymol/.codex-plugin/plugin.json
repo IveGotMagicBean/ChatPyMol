@@ -1,7 +1,7 @@
 {
   "name": "chatpymol",
   "version": "0.2.0",
-  "description": "在 Codex 中用自然语言与浏览器人工编辑共同维护版本化 PyMOL 场景。",
+  "description": "在本机私有环境中，让 Codex 自然语言与浏览器人工编辑共同维护版本化 PyMOL 场景。",
   "author": {
     "name": "ChatPyMOL"
   },
@@ -15,7 +15,7 @@
   "interface": {
     "displayName": "ChatPyMOL",
     "shortDescription": "让 Codex 与浏览器协同编辑版本化 PyMOL 场景",
-    "longDescription": "读取当前 Session、结构对象与最新 PML 版本，通过带冲突保护的 MCP 工具提交最小修改，并把结果实时同步到浏览器中的 PyMOL-WASM。",
+    "longDescription": "默认启动只绑定 127.0.0.1 的本机服务，按 Codex 主会话自动绑定独立分子工作区；读取结构对象与最新 PML，通过带冲突保护的 MCP 工具提交最小修改，并实时同步到浏览器 PyMOL-WASM。",
     "developerName": "ChatPyMOL",
     "category": "Science",
     "capabilities": [

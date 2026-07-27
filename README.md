@@ -4,7 +4,7 @@
 
 ## 复制给 Codex，一键接入
 
-把下面整段 Prompt 复制到 Codex。它会安装 ChatPyMOL CLI、插件与 MCP，并在需要浏览器确认配对时停下来提示你：
+把下面整段 Prompt 复制到 Codex。它会安装 CLI、插件与 MCP，并在你的电脑上启动只监听 `127.0.0.1` 的私有 ChatPyMOL；不需要 ChatPyMOL 云服务或浏览器配对：
 
 ```text
 请帮我安装并连接 ChatPyMOL 的 Codex 插件。
@@ -14,19 +14,21 @@
 请先阅读仓库中的 docs/cli-codex-claude.zh-CN.md，然后按以下要求操作：
 1. 在安全的本地目录克隆或更新仓库，并确认 Node.js 版本不低于 22；
 2. 在仓库根目录运行 npm ci --ignore-scripts、npm run build 和 npm install -g .；
-3. 询问我的 ChatPyMOL 服务地址，再运行 chatpymol pair --base-url <服务地址>。需要浏览器确认时暂停，把配对链接交给我；不要输出、记录或提交匿名工作区令牌；
-4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；
-5. 使用 chatpymol status、codex plugin list 和 codex mcp list 验证安装结果；
-6. 完成后提醒我重启 Codex，并在新会话中使用 /mcp 确认 chatpymol 已连接。
+3. 若仓库根目录已有我填写的 .env，运行 chatpymol local start --open --env-file "$PWD/.env"；否则运行 chatpymol local start --open。确认服务只绑定 127.0.0.1，不要改成 0.0.0.0；
+4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；不要修改外部个人 marketplace 文件；
+5. 使用 codex plugin list 和 codex mcp list 验证安装结果；
+6. 完成后提醒我重启 Codex，在新会话中用 /hooks 审查并信任 ChatPyMOL hooks，再用 /mcp 确认 chatpymol 已连接。
 
-不要修改任何蛋白场景，除非我随后明确提出修改要求。
+ChatPyMOL hooks 只能使用官方稳定的 session_id、turn_id、cwd 字段；禁止读取 transcript_path。一个 Codex 主会话绑定一个本地 ChatPyMOL Session，/resume 必须复用；普通对话不应同步，只有 ChatPyMOL 工具操作和我明确提出的分子请求主题摘要可以落盘。
+
+不要修改任何蛋白场景，除非我随后明确提出修改要求。不要询问 ChatPyMOL 服务地址，默认使用本地私有模式。
 ```
 
 完成后可以在新的 Codex 对话中说：
 
 ```text
-使用 $chatpymol-collaboration，列出我的 ChatPyMOL Session，
-打开我指定的课题，并把修改实时同步到浏览器。
+使用 $chatpymol-collaboration，在这个 Codex 会话绑定的本地工作区中
+载入 1UBQ，打开浏览器，并把后续修改实时同步到 PyMOL。
 ```
 
 > [!IMPORTANT]
@@ -65,7 +67,8 @@ PyMOL 原生界面与命令行 ─────────┼─> 事件记录 �
 - PML、原始结构、工作区 ZIP、PSE 和光线追踪 PNG 导出；
 - 浏览器与 CLI/Codex/Claude Code 间的实时更新；
 - 匿名浏览器配对，不要求账号登录；
-- Codex 插件、Claude Code 插件、CLI 与 MCP 工具。
+- Codex 插件、Claude Code 插件、CLI 与 MCP 工具；
+- `chatpymol local start/stop/status/open` 本机私有运行，以及基于稳定 Codex hooks 的会话自动绑定。
 
 ## 快速开始
 
@@ -125,10 +128,10 @@ OPENAI_MODEL=gpt-5.6-terra
 ```bash
 npm run build
 npm install -g .
-chatpymol pair --base-url http://localhost:8787
+chatpymol local start --open
 ```
 
-浏览器确认配对后，CLI 和 MCP 会复用本机受保护的配对配置，不需要再次复制设备令牌。常用流程：
+本地模式默认只监听 `127.0.0.1:8787`。Linux 数据位于 `$XDG_DATA_HOME/chatpymol/data`（默认 `~/.local/share/chatpymol/data`），状态与日志位于 `$XDG_STATE_HOME/chatpymol`（默认 `~/.local/state/chatpymol`）；默认模型配置读取 `$XDG_CONFIG_HOME/chatpymol/.env`，也可用 `--env-file` 指向已有密钥文件。macOS 和 Windows 使用各自标准用户应用数据目录。常用流程：
 
 ```bash
 chatpymol sessions
@@ -141,6 +144,10 @@ chatpymol apply \
 chatpymol open --session <session-id> --launch
 ```
 
+Codex 插件默认运行 `chatpymol mcp --local`。稳定 hooks 会按 Codex `session_id` 自动创建/复用一个 ChatPyMOL Session，`/resume` 不会另开；不同 Codex 主会话相互隔离，同一会话可以包含任意多个蛋白、核酸与配体。`chatpymol codex sessions` 可查看脱敏后的绑定，`chatpymol codex open --binding <哈希前缀>` 可打开对应工作区。
+
+连接已经部署的云端或实验室 LAN 服务仍然支持：运行 `chatpymol pair --base-url <地址>`，再使用不带 `--local` 的 `chatpymol mcp`；远程 HTTP MCP 配置见完整中文指南。
+
 `apply` 必须明确至少一个对象 ID，但对象数量没有上限。若要修改整个场景，应先列出对象，再显式传入所有目标 ID。
 
 插件目录：
@@ -150,7 +157,7 @@ chatpymol open --session <session-id> --launch
 
 ## 数据与版本
 
-默认数据目录为 `./data`：
+源码直接运行服务时默认数据目录为 `./data`；`chatpymol local` 使用上文的系统用户数据目录：
 
 ```text
 data/devices/<device-token 的 SHA-256 派生 ID>/

@@ -90,6 +90,18 @@ export class ApiClient {
     return this.request(`/api/projects/${projectId}`, { method: "DELETE" });
   }
 
+  createShare(projectId) {
+    return this.request(`/api/projects/${projectId}/share`, {
+      method: "POST"
+    });
+  }
+
+  revokeShare(projectId) {
+    return this.request(`/api/projects/${projectId}/share`, {
+      method: "DELETE"
+    });
+  }
+
   getVersion(projectId, versionId) {
     return this.request(`/api/projects/${projectId}/versions/${versionId}`);
   }
@@ -207,6 +219,36 @@ export class ApiClient {
     const response = await fetch(url, { ...options, headers });
     if (!response.ok) throw await toApiError(response);
     return response.json();
+  }
+}
+
+export class SharedApiClient {
+  constructor(shareId) {
+    this.shareId = shareId;
+  }
+
+  async getShare() {
+    const response = await fetch(`/api/shares/${this.shareId}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || "分享链接不存在或已停止");
+    }
+    return response.json();
+  }
+
+  async structureBytes(_projectId, structure) {
+    const response = await fetch(structure.url, { cache: "no-store" });
+    if (!response.ok) throw new Error("无法读取分享的结构文件");
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  downloadStructure(_projectId, structure) {
+    const anchor = document.createElement("a");
+    anchor.href = structure.url;
+    anchor.download = structure.filename;
+    anchor.click();
   }
 }
 

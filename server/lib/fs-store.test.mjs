@@ -206,6 +206,63 @@ test("inactive official example preserves the active project and deletion is fin
   assert.ok(device.officialExample.deletedAt);
 });
 
+test("conversation shares are isolated snapshots that can be refreshed and revoked", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "chatpymol-share-test-"));
+  const store = new FileStore(root);
+  await store.init();
+  const token = "device_token_share_snapshot_abcdefghijklmnopqrstuvwxyz";
+  const initial = await store.bootstrap(token);
+  const uploaded = await store.addStructure(token, initial.project.id, {
+    originalname: "private-study.pdb",
+    buffer: Buffer.from("HEADER SHARED TEST\nEND\n"),
+    size: 23
+  });
+  await store.appendMessage(token, initial.project.id, {
+    role: "user",
+    content: "展示这个结构",
+    versionId: uploaded.version.id,
+    structureIds: [uploaded.structure.id]
+  });
+
+  const first = await store.createShare(token, initial.project.id);
+  assert.match(first.share.id, /^shr_[a-f0-9]{48}$/);
+  assert.equal(first.share.path, `/share/${first.share.id}`);
+  assert.equal(first.snapshot.project.id, initial.project.id);
+  assert.equal(first.snapshot.structures.length, 1);
+  assert.equal(JSON.stringify(first.snapshot).includes(token), false);
+
+  await store.appendMessage(token, initial.project.id, {
+    role: "user",
+    content: "这条消息尚未更新到分享"
+  });
+  const unchanged = await store.getShare(first.share.id);
+  assert.equal(
+    unchanged.messages.some((message) => message.content === "这条消息尚未更新到分享"),
+    false
+  );
+
+  const refreshed = await store.createShare(token, initial.project.id);
+  assert.equal(refreshed.share.id, first.share.id);
+  assert.equal(
+    refreshed.snapshot.messages.some(
+      (message) => message.content === "这条消息尚未更新到分享"
+    ),
+    true
+  );
+  const sharedStructure = await store.sharedStructurePath(
+    first.share.id,
+    uploaded.structure.id
+  );
+  assert.match(await readFile(sharedStructure.path, "utf8"), /SHARED TEST/);
+
+  const listed = await store.listProjects(token);
+  assert.equal(listed.projects[0].share.id, first.share.id);
+  await store.revokeShare(token, initial.project.id);
+  await assert.rejects(store.getShare(first.share.id), (error) => error.status === 404);
+  const afterRevoke = await store.listProjects(token);
+  assert.equal(afterRevoke.projects[0].share, null);
+});
+
 test("concurrent device bootstrap does not duplicate the initial project", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "chatpymol-test-"));
   const store = new FileStore(root);

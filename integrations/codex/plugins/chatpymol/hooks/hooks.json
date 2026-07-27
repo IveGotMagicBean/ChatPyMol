@@ -1,0 +1,46 @@
+{
+  "description": "Bind each Codex main session to one private local ChatPyMOL workspace without reading transcript files.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "chatpymol codex-hook",
+            "commandWindows": "chatpymol codex-hook",
+            "timeout": 15,
+            "statusMessage": "正在连接本机 ChatPyMOL 工作区"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "chatpymol codex-hook",
+            "commandWindows": "chatpymol codex-hook",
+            "timeout": 15,
+            "statusMessage": "正在同步分子工作区上下文"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__chatpymol__.*$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "chatpymol codex-hook",
+            "commandWindows": "chatpymol codex-hook",
+            "timeout": 15,
+            "statusMessage": "正在确认 ChatPyMOL 会话边界"
+          }
+        ]
+      }
+    ]
+  }
+}

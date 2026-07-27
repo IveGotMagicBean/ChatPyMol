@@ -1,5 +1,6 @@
 import {
   appendFile,
+  copyFile,
   mkdir,
   readFile,
   rename,
@@ -46,6 +47,7 @@ export class FileStore {
 
   async init() {
     await mkdir(this.root, { recursive: true });
+    await mkdir(path.join(this.root, "shares"), { recursive: true });
   }
 
   deviceId(token) {
@@ -120,6 +122,7 @@ export class FileStore {
           revision: project.revision,
           activeVersionId: project.activeVersionId,
           structureCount: project.structureIds?.length || 0,
+          share: publicShareMetadata(project.share),
           preview: lastUserMessage?.content?.slice(0, 80) || "尚未开始对话"
         } : null;
       })
@@ -216,6 +219,16 @@ export class FileStore {
     }
     device.lastSeenAt = now;
     await writeJsonAtomic(deviceFile, device);
+    const deletedProject = await readJson(
+      path.join(this.projectDir(token, projectId), "project.json"),
+      null
+    );
+    if (deletedProject?.share?.id) {
+      await rm(this.shareDir(deletedProject.share.id), {
+        recursive: true,
+        force: true
+      });
+    }
     await rm(this.projectDir(token, projectId), { recursive: true, force: true });
     return this.getWorkspace(token, device.activeProjectId);
   }
@@ -378,6 +391,121 @@ export class FileStore {
       messages,
       events,
       versions
+    };
+  }
+
+  shareDir(shareId) {
+    assertShareId(shareId);
+    return path.join(this.root, "shares", shareId);
+  }
+
+  async createShare(token, projectId) {
+    return this.withProjectLock(token, projectId, async () => {
+      const dir = this.projectDir(token, projectId);
+      const projectFile = path.join(dir, "project.json");
+      const project = await readJson(projectFile, null);
+      if (!project) {
+        const error = new Error("对话不存在");
+        error.status = 404;
+        throw error;
+      }
+
+      const workspace = await this.getWorkspace(token, projectId);
+      const now = new Date().toISOString();
+      const shareId =
+        project.share?.id ||
+        `shr_${randomUUID().replaceAll("-", "")}${randomUUID()
+          .replaceAll("-", "")
+          .slice(0, 16)}`;
+      assertShareId(shareId);
+      const shareDir = this.shareDir(shareId);
+      const structuresDir = path.join(shareDir, "structures");
+      await mkdir(structuresDir, { recursive: true });
+
+      const versions = (
+        await Promise.all(
+          workspace.versions.map((version) =>
+            this.getVersion(token, projectId, version.id)
+          )
+        )
+      ).filter(Boolean);
+      for (const structure of workspace.structures) {
+        await copyFile(
+          path.join(dir, "structures", structure.storageName),
+          path.join(structuresDir, structure.storageName)
+        );
+      }
+
+      const share = {
+        id: shareId,
+        createdAt: project.share?.createdAt || now,
+        updatedAt: now
+      };
+      const snapshot = {
+        schemaVersion: 1,
+        share,
+        project: {
+          id: project.id,
+          title: project.title,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt
+        },
+        version: workspace.version,
+        pml: workspace.pml,
+        structures: workspace.structures.map(publicStructure),
+        messages: workspace.messages.map(publicMessage),
+        versions
+      };
+      await writeJsonAtomic(path.join(shareDir, "snapshot.json"), snapshot);
+      project.share = share;
+      await writeJsonAtomic(projectFile, project);
+      return { share: publicShareMetadata(share), snapshot };
+    });
+  }
+
+  async getShare(shareId) {
+    const snapshot = await readJson(
+      path.join(this.shareDir(shareId), "snapshot.json"),
+      null
+    );
+    if (!snapshot) {
+      const error = new Error("分享链接不存在或已停止");
+      error.status = 404;
+      throw error;
+    }
+    return snapshot;
+  }
+
+  async revokeShare(token, projectId) {
+    return this.withProjectLock(token, projectId, async () => {
+      const projectFile = path.join(
+        this.projectDir(token, projectId),
+        "project.json"
+      );
+      const project = await readJson(projectFile, null);
+      if (!project) {
+        const error = new Error("对话不存在");
+        error.status = 404;
+        throw error;
+      }
+      const shareId = project.share?.id;
+      if (shareId) {
+        await rm(this.shareDir(shareId), { recursive: true, force: true });
+      }
+      delete project.share;
+      await writeJsonAtomic(projectFile, project);
+      return { revoked: Boolean(shareId), shareId: shareId || null };
+    });
+  }
+
+  async sharedStructurePath(shareId, structureId) {
+    assertId(structureId, "structure");
+    const snapshot = await this.getShare(shareId);
+    const structure = snapshot.structures.find((item) => item.id === structureId);
+    if (!structure) return null;
+    return {
+      structure,
+      path: path.join(this.shareDir(shareId), "structures", structure.storageName)
     };
   }
 
@@ -823,6 +951,59 @@ function normalizePml(pml) {
 
 function cleanTitle(title) {
   return String(title || "未命名分子场景").trim().slice(0, 120);
+}
+
+function publicShareMetadata(share) {
+  if (!share?.id) return null;
+  return {
+    id: share.id,
+    path: `/share/${share.id}`,
+    createdAt: share.createdAt,
+    updatedAt: share.updatedAt
+  };
+}
+
+function publicStructure(structure) {
+  return {
+    id: structure.id,
+    filename: structure.filename,
+    storageName: structure.storageName,
+    objectName: structure.objectName,
+    format: structure.format,
+    metadata: structure.metadata,
+    bytes: structure.bytes,
+    createdAt: structure.createdAt,
+    sha256: structure.sha256
+  };
+}
+
+function publicMessage(message) {
+  const allowed = [
+    "id",
+    "createdAt",
+    "role",
+    "content",
+    "contentEn",
+    "mode",
+    "demoStep",
+    "versionId",
+    "structureIds",
+    "actor",
+    "source"
+  ];
+  return Object.fromEntries(
+    allowed
+      .filter((key) => message[key] !== undefined)
+      .map((key) => [key, message[key]])
+  );
+}
+
+function assertShareId(value) {
+  if (!/^shr_[a-f0-9]{48}$/.test(String(value || ""))) {
+    const error = new Error("Invalid share id");
+    error.status = 404;
+    throw error;
+  }
 }
 
 function extensionOf(filename) {

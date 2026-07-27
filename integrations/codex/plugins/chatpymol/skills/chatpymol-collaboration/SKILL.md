@@ -5,14 +5,16 @@ description: 通过 ChatPyMOL MCP 在 Codex 对话与浏览器 PyMOL-WASM 之间
 
 # ChatPyMOL 协同编辑
 
-把 Codex 作为自然语言与科研推理入口，把浏览器中的 PyMOL 作为实时三维预览和原生人工编辑器。两端只通过服务器保存的 Session、对象与版本协作，不把“当前页面”当作可靠状态。
+把 Codex 作为自然语言与科研推理入口，把浏览器中的 PyMOL 作为实时三维预览和原生人工编辑器。默认运行 `127.0.0.1` 上的本机私有 ChatPyMOL 服务，结构、PML、版本、映射与日志都落在当前用户目录，不依赖 ChatPyMOL 云端。
+
+官方稳定 hooks 会读取 `session_id`、`turn_id` 与 `cwd`：一个 Codex 主会话绑定一个 ChatPyMOL Session，`/resume` 使用相同 `session_id`，因此复用原工作区；不同 Codex 主会话各自隔离。同一 ChatPyMOL Session 内仍可加载任意多个蛋白、核酸或配体。不要读取 `transcript_path`；它不是稳定接口，也不应把整段私密对话同步到 ChatPyMOL。
 
 需要确认参数或错误语义时，读取 [MCP 工具契约](references/mcp-contract.md)。
 
 ## 每轮固定流程
 
-1. 调用 `list_sessions`。如果用户已明确给出 `sessionId`，仍调用 `get_session` 获取它的最新状态。
-2. 选择且只选择一个目标 Session。多个候选而用户意图不清时，列出名称与 `sessionId` 请用户选择；不得修改“全局 current”。
+1. 优先使用 SessionStart/UserPromptSubmit hook 注入的“本 Codex 主会话已绑定 Session”上下文。第一次调用 `get_session` 时可省略 `sessionId`，PreToolUse hook 会在工具执行前注入绑定值；工具返回后保存明确 ID。不要用网页全局 active Session 猜测目标。
+2. 只有用户明确要求跨课题或切换到其他 ChatPyMOL Session 时才调用 `list_sessions` 并请用户选择。显式提供的 `sessionId` 不会被 hook 覆盖。
 3. 调用 `list_objects` 读取该 Session 的所有真实结构对象。一个 Session 可以包含任意数量的蛋白、核酸与配体。
 4. 把本轮会受修改影响的真实结构 ID 写入 `targetObjectIds`。它必须显式包含至少 1 个 ID，可包含任意多个，不要求恰好两个；PyMOL selection 不能替代这个提交边界。用户说“全部”时也要把 `list_objects` 返回的当前全部真实 ID 逐个展开，禁止省略或传空数组。Session 尚无对象时先载入结构，不调用 `apply_pml`。
 5. 在写入前立即调用 `get_session`，记录返回的最新 `activeVersionId`，并在写工具中把它作为 `baseVersionId`。浏览器人工编辑可能刚刚产生了新版本，不能复用上一轮缓存。
@@ -25,6 +27,7 @@ description: 通过 ChatPyMOL MCP 在 Codex 对话与浏览器 PyMOL-WASM 之间
 
 ## Session 与对象边界
 
+- Codex 主会话与 ChatPyMOL Session 的映射只保存哈希、工作目录名称与目标 Session ID，不保存原始 Codex `session_id`、完整 `cwd` 或 transcript。普通代码/科研对话不进入 ChatPyMOL；只有明确涉及分子的提示才写入主题摘要和哈希，实际 ChatPyMOL 工具修改照常形成版本事件。
 - 不同 Session 是不同课题空间，不共享 scene、对象、PML 或版本链。
 - 同一 Session 可以加载多个结构；不要新增“必须正好两个对象”之类的门槛。
 - `apply_pml.targetObjectIds` 是版本提交的对象边界，必须非空；命令内的 `chain A`、`organic` 等 selection 只描述对象内部范围，不能替代真实结构 ID。
@@ -56,3 +59,5 @@ description: 通过 ChatPyMOL MCP 在 Codex 对话与浏览器 PyMOL-WASM 之间
 - 从哪个版本提交到哪个新版本；
 - 浏览器会自动同步，人工可继续用原生 PyMOL 面板编辑；
 - 下一次对话会重新读取人工编辑后的最新版，无需用户再次上传。
+
+用户要查看时调用 `get_browser_link`。本地服务与浏览器使用同一私有设备工作区，链接会直接定位本 Codex 会话绑定的 Session；结构一旦由浏览器、`fetch_pdb` 或 `upload_structure` 载入，后续轮次不要求用户重复上传。

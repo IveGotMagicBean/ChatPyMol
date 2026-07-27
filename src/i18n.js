@@ -20,8 +20,8 @@ const EN = {
   "复制失败": "Copy failed",
   "在 Codex 中使用": "Use with Codex",
   "在 Codex 中使用 ChatPyMOL": "Use ChatPyMOL with Codex",
-  "复制下面的 Prompt 给 Codex，它会完成 CLI、插件、MCP 与浏览器配对。":
-    "Copy this prompt into Codex to set up the CLI, plugin, MCP, and browser pairing.",
+  "复制下面的 Prompt 给 Codex，它会在本机完成 CLI、插件、MCP 与私有工作区设置。":
+    "Copy this prompt into Codex to set up the CLI, plugin, MCP, and private local workspace.",
   "查看完整接入指南": "View the full setup guide",
   "复制安装 Prompt": "Copy setup prompt",
   "Prompt 已复制": "Prompt copied",
@@ -33,6 +33,31 @@ const EN = {
   "对话菜单": "Conversation menu",
   "有来自 CLI 的新版本": "New version from CLI",
   "重命名": "Rename",
+  "分享": "Share",
+  "管理分享": "Manage sharing",
+  "分享对话": "Share conversation",
+  "任何获得链接的人都可以查看": "Anyone with the link can view",
+  "分享内容包括这个对话中的消息、蛋白结构和场景版本。请勿分享含有未公开或敏感数据的对话。":
+    "The shared content includes this conversation's messages, molecular structures, and scene versions. Do not share unpublished or sensitive data.",
+  "分享链接": "Share link",
+  "复制链接": "Copy link",
+  "这是当前时点的只读快照；之后的修改不会自动同步。你可以随时更新内容或停止分享。":
+    "This is a read-only snapshot of the current conversation. Later changes are not synced automatically; you can refresh or disable the share at any time.",
+  "停止分享": "Stop sharing",
+  "打开分享页": "Open shared page",
+  "更新分享内容": "Refresh shared content",
+  "将创建一个仅包含此对话当前内容的公开只读快照，不会分享你的其他对话或设备标识。":
+    "This creates a public read-only snapshot containing only this conversation. Your other chats and device identifier are not shared.",
+  "取消": "Cancel",
+  "创建公开链接": "Create public link",
+  "停止分享后，任何人都无法再通过原链接查看。确定停止吗？":
+    "After sharing is disabled, the original link will stop working for everyone. Continue?",
+  "分享链接不存在或已停止": "This shared link does not exist or has been disabled",
+  "只读分享": "Read-only share",
+  "你可以旋转、缩放和查看不同版本；在此页面做的操作不会保存。":
+    "You can rotate, zoom, and inspect versions. Changes made on this page are not saved.",
+  "由 ChatPyMOL 创建": "Created with ChatPyMOL",
+  "返回 ChatPyMOL": "Open ChatPyMOL",
   "置顶": "Pin",
   "取消置顶": "Unpin",
   "删除": "Delete",

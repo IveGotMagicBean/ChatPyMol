@@ -6,6 +6,16 @@ import os from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { RemoteChatPymolService } from "../server/lib/chatpymol-service.mjs";
+import {
+  handleCodexHook,
+  listCodexBindings
+} from "../server/lib/codex-binding.mjs";
+import {
+  localServerStatus,
+  persistLocalCliConfig,
+  startLocalServer,
+  stopLocalServer
+} from "../server/lib/local-runtime.mjs";
 import { runStdioMcpServer } from "../server/lib/mcp-server.mjs";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8787";
@@ -32,6 +42,18 @@ async function main() {
     await pairCommand(args);
     return;
   }
+  if (command === "local") {
+    await localCommand(args);
+    return;
+  }
+  if (command === "codex-hook") {
+    await codexHookCommand();
+    return;
+  }
+  if (command === "codex") {
+    await codexCommand(args);
+    return;
+  }
 
   const parsed = parseCommand(command, args);
   if (parsed.values.help) {
@@ -40,14 +62,20 @@ async function main() {
   }
   const configPath = resolveConfigPath(parsed.values.config);
   const saved = await readConfig(configPath);
-  const baseUrl = trimBaseUrl(
+  let baseUrl = trimBaseUrl(
     parsed.values["base-url"] ||
       process.env.CHATPYMOL_BASE_URL ||
       saved.baseUrl ||
       DEFAULT_BASE_URL
   );
-  const token =
+  let token =
     parsed.values.token || process.env.CHATPYMOL_TOKEN || saved.token || "";
+  if (command === "mcp" && parsed.values.local) {
+    const local = await startLocalServer({ configPath });
+    await persistLocalCliConfig(local, configPath);
+    baseUrl = local.baseUrl;
+    token = local.token;
+  }
   if (!token) {
     throw new Error(
       `尚未连接浏览器。请先运行：chatpymol pair --base-url ${baseUrl}`
@@ -250,8 +278,10 @@ async function pairCommand(args) {
     );
     if (status.status !== "paired") continue;
     await writeConfig(configPath, {
+      ...saved,
       baseUrl,
       token: status.token,
+      mode: "cloud",
       pairedAt: status.completedAt || new Date().toISOString()
     });
     if (parsed.values.json) {
@@ -269,6 +299,194 @@ async function pairCommand(args) {
     return;
   }
   throw new Error(`配对超时（${timeoutSeconds} 秒），请重新运行 pair`);
+}
+
+async function localCommand(args) {
+  const [subcommand = "status", ...rest] = args;
+  if (["--help", "-h", "help"].includes(subcommand)) {
+    printCommandHelp("local");
+    return;
+  }
+  const parsed = parseArgs({
+    args: rest,
+    allowPositionals: false,
+    strict: true,
+    options: {
+      port: { type: "string" },
+      "state-dir": { type: "string" },
+      "data-dir": { type: "string" },
+      "env-file": { type: "string" },
+      config: { type: "string" },
+      open: { type: "boolean", default: false },
+      "no-launch": { type: "boolean", default: false },
+      session: { type: "string" },
+      json: { type: "boolean", default: false },
+      help: { type: "boolean", short: "h", default: false }
+    }
+  });
+  if (parsed.values.help) {
+    printCommandHelp("local");
+    return;
+  }
+  const options = {
+    port: parsed.values.port,
+    stateDir: parsed.values["state-dir"],
+    dataDir: parsed.values["data-dir"],
+    envFile: parsed.values["env-file"],
+    configPath: parsed.values.config
+  };
+
+  let result;
+  if (subcommand === "start") {
+    result = await startLocalServer(options);
+    const persisted = await persistLocalCliConfig(result, parsed.values.config);
+    result = { ...result, configPath: persisted.configPath };
+    if (parsed.values.open) launchBrowser(result.baseUrl);
+  } else if (subcommand === "status") {
+    result = await localServerStatus({ stateDir: options.stateDir });
+  } else if (subcommand === "stop") {
+    result = await stopLocalServer({ stateDir: options.stateDir });
+  } else if (subcommand === "open") {
+    result = await startLocalServer(options);
+    const persisted = await persistLocalCliConfig(result, parsed.values.config);
+    const url = new URL(result.baseUrl);
+    if (parsed.values.session) url.searchParams.set("session", parsed.values.session);
+    result = {
+      ...result,
+      configPath: persisted.configPath,
+      browserUrl: url.toString()
+    };
+    if (!parsed.values["no-launch"]) launchBrowser(result.browserUrl);
+  } else {
+    throw new Error(
+      `未知本地命令：${subcommand}。可用 start、stop、status、open。`
+    );
+  }
+
+  if (parsed.values.json) {
+    process.stdout.write(`${JSON.stringify(safeLocalResult(result), null, 2)}\n`);
+    return;
+  }
+  printLocalResult(subcommand, result);
+}
+
+async function codexHookCommand() {
+  let input = {};
+  try {
+    const raw = await readStdinText();
+    input = raw.trim() ? JSON.parse(raw) : {};
+  } catch (error) {
+    process.stdout.write(
+      `${JSON.stringify({ continue: true, systemMessage: `ChatPyMOL hook 输入无效：${error.message}` })}\n`
+    );
+    return;
+  }
+  const output = await handleCodexHook(input);
+  process.stdout.write(`${JSON.stringify(output)}\n`);
+}
+
+async function codexCommand(args) {
+  const [subcommand = "sessions", ...rest] = args;
+  if (["--help", "-h", "help"].includes(subcommand)) {
+    printCommandHelp("codex");
+    return;
+  }
+  const parsed = parseArgs({
+    args: rest,
+    allowPositionals: false,
+    strict: true,
+    options: {
+      binding: { type: "string" },
+      "state-dir": { type: "string" },
+      json: { type: "boolean", default: false },
+      "no-launch": { type: "boolean", default: false },
+      help: { type: "boolean", short: "h", default: false }
+    }
+  });
+  if (parsed.values.help) {
+    printCommandHelp("codex");
+    return;
+  }
+  const bindings = await listCodexBindings({
+    stateDir: parsed.values["state-dir"]
+  });
+  if (subcommand === "sessions") {
+    if (parsed.values.json) {
+      process.stdout.write(`${JSON.stringify({ bindings }, null, 2)}\n`);
+    } else {
+      const lines = bindings.map(
+        (item) =>
+          `${item.codexSessionHash}  ${item.chatpymolSessionId}  ${item.cwdName}  ${item.lastSeenAt}`
+      );
+      process.stdout.write(`${lines.join("\n") || "暂无 Codex 会话绑定"}\n`);
+    }
+    return;
+  }
+  if (subcommand !== "open") {
+    throw new Error(`未知 Codex 命令：${subcommand}。可用 sessions、open。`);
+  }
+  const selector = required(parsed.values.binding, "--binding");
+  const matches = bindings.filter((item) =>
+    item.codexSessionHash.startsWith(selector)
+  );
+  if (matches.length !== 1) {
+    throw new Error(
+      matches.length
+        ? `绑定前缀 ${selector} 不唯一，请提供更多字符`
+        : `找不到 Codex 绑定：${selector}`
+    );
+  }
+  const local = await startLocalServer({
+    stateDir: parsed.values["state-dir"]
+  });
+  await persistLocalCliConfig(local);
+  const url = new URL(local.baseUrl);
+  url.searchParams.set("session", matches[0].chatpymolSessionId);
+  if (!parsed.values["no-launch"]) launchBrowser(url.toString());
+  const result = {
+    binding: matches[0],
+    browserUrl: url.toString()
+  };
+  process.stdout.write(
+    parsed.values.json
+      ? `${JSON.stringify(result, null, 2)}\n`
+      : `${result.browserUrl}\n`
+  );
+}
+
+function safeLocalResult(result) {
+  const { token: _token, paths: _paths, ...safe } = result || {};
+  return safe;
+}
+
+function printLocalResult(command, result) {
+  if (command === "stop") {
+    process.stdout.write(
+      result.alreadyStopped
+        ? "ChatPyMOL 本地服务未运行。\n"
+        : "ChatPyMOL 本地服务已停止；数据仍保留在本机。\n"
+    );
+    return;
+  }
+  if (command === "status") {
+    process.stdout.write(
+      result.running
+        ? `ChatPyMOL 本地服务运行中\n地址：${result.baseUrl}\nPID：${result.pid}\n数据：${result.dataDir}\n日志：${result.logFile}\n`
+        : `ChatPyMOL 本地服务未运行\n数据：${result.dataDir}\n日志：${result.logFile}\n`
+    );
+    return;
+  }
+  process.stdout.write(
+    `ChatPyMOL 本地服务${result.alreadyRunning ? "已在运行" : "已启动"}\n` +
+      `地址：${result.browserUrl || result.baseUrl}\n数据：${result.dataDir}\n日志：${result.logFile}\n` +
+      `配置：${result.configPath}\n`
+  );
+}
+
+async function readStdinText() {
+  const chunks = [];
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8");
 }
 
 function parseCommand(command, args) {
@@ -325,7 +543,9 @@ function parseCommand(command, args) {
       force: { type: "boolean", default: false }
     },
     exports: { session: { type: "string" } },
-    mcp: {}
+    mcp: {
+      local: { type: "boolean", default: false }
+    }
   };
   if (!Object.hasOwn(commandOptions, command)) {
     throw new Error(`未知命令：${command}`);
@@ -387,6 +607,7 @@ function printMainHelp() {
 用法：chatpymol <命令> [选项]
 
 连接：
+  local      启动、停止、检查或打开本机私有服务（默认仅 127.0.0.1）
   pair       用一次性短码连接浏览器设备（无需登录）
   status     查看工作区、活动 Session 和版本
 
@@ -407,7 +628,8 @@ Session 与对象：
   exports    获取 PML/项目 ZIP 导出地址
 
 Agent：
-  mcp        启动 stdio MCP（供 Codex CLI / Claude Code 使用）
+  mcp        启动 stdio MCP（--local 自动使用本机私有服务）
+  codex      列出或打开按 Codex 主会话隔离的本地工作区
 
 运行 chatpymol <命令> --help 查看示例。
 环境变量：CHATPYMOL_BASE_URL、CHATPYMOL_TOKEN、CHATPYMOL_SOURCE。
@@ -418,6 +640,7 @@ Agent：
 
 function printCommandHelp(command) {
   const help = {
+    local: `chatpymol local start [--open] [--port 8787] [--env-file ./.env]\nchatpymol local status\nchatpymol local open [--session prj_...]\nchatpymol local stop\n\n默认只绑定 127.0.0.1。数据、日志和 PID 分别保存在系统用户数据/状态目录，不依赖 ChatPyMOL 云服务。默认模型配置文件为 CLI 配置目录中的 .env。`,
     pair: `chatpymol pair --base-url http://127.0.0.1:8787 [--launch] [--timeout 180]\n浏览器确认后自动保存本机 CLI 凭据；不需要登录。脚本模式可用 --no-wait --json，并自行安全保存返回的 pollSecret。`,
     status: `chatpymol status [--json]`,
     sessions: `chatpymol sessions [--json]`,
@@ -432,7 +655,8 @@ function printCommandHelp(command) {
     open: `chatpymol open --session prj_... [--version v000002_...] [--launch]\n默认只打印浏览器深链；只有显式添加 --launch 才会启动本机浏览器。`,
     export: `chatpymol export --session prj_... --format pml|zip [--output ./scene.pml] [--force]\n默认使用服务器安全文件名，且已有文件不会被覆盖；只有明确 --force 才覆盖。`,
     exports: `chatpymol exports --session prj_...`,
-    mcp: `chatpymol mcp\n在 stdout 上运行标准 MCP stdio；自动读取 pair 保存的凭据。`
+    mcp: `chatpymol mcp [--local]\n在 stdout 上运行标准 MCP stdio。--local 会自动启动并连接只绑定 127.0.0.1 的本机服务；不带该参数时继续读取 pair/connect 保存的云端或 LAN 凭据。`,
+    codex: `chatpymol codex sessions [--json]\nchatpymol codex open --binding <Codex 会话哈希前缀>\n列出或打开 Codex hooks 自动建立的本地会话映射；仅保存哈希、目录名和 ChatPyMOL Session，不读取 transcript。`
   };
   process.stdout.write(`${help[command] || "暂无帮助"}\n`);
 }

@@ -3,7 +3,8 @@
     "chatpymol": {
       "command": "chatpymol",
       "args": [
-        "mcp"
+        "mcp",
+        "--local"
       ],
       "env": {
         "CHATPYMOL_SOURCE": "codex"
