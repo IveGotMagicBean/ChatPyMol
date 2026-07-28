@@ -1,23 +1,27 @@
-# ChatPyMOL：CLI、Codex 与 Claude Code 协同接入
+# ChatPyMOL：CLI、MCP 与本地 Agent 协同接入
 
 这套接入把聊天与三维编辑分开：
 
 ```text
-Codex / Claude Code / ChatPyMOL CLI
-              │
-              ▼
-       版本化 Session API
-              │
-     ┌────────┴────────┐
-     ▼                 ▼
+Codex / Claude Code / Trae / WorkBuddy / 其他本地 Agent
+                         │
+                CLI + stdio MCP
+                         │
+                         ▼
+                  版本化 Session API
+                         │
+                ┌────────┴────────┐
+                ▼                 ▼
 浏览器 PyMOL-WASM    落盘的 PDB/PML/版本历史
 ```
 
-在 Codex 或 Claude Code 里说“把 A 链改成粉色”，MCP 会基于指定 Session 的最新版本创建新 PML 版本；已经打开的浏览器自动加载它。你随后在 PyMOL 原生面板中的人工操作也会自动保存成新版本，下一轮 CLI/AI 会重新读取，不需要再次上传。
+在任意已连接的本地 Agent 里说“把 A 链改成粉色”，MCP 会基于指定 Session 的最新版本创建新 PML 版本；已经打开的浏览器自动加载它。你随后在 PyMOL 原生面板中的人工操作也会自动保存成新版本，下一轮 CLI/AI 会重新读取，不需要再次上传。
 
-本文对应 ChatPyMOL CLI、MCP 服务与 Codex/Claude 插件 `0.2.0`。
+通用接入只要求客户端支持本地 stdio MCP。Codex 与 Claude Code 另有仓库内适配器；Codex 还提供基于稳定 hooks 的会话自动绑定。Trae、WorkBuddy 等客户端的配置入口可能随版本变化，但只要能够注册本地 stdio MCP，就可以使用同一套工具契约。
 
-## 1. Codex 默认：本机私有运行
+本文对应 ChatPyMOL CLI、MCP 服务与本地 Agent 适配器 `0.2.0`。
+
+## 1. 默认方式：本机私有运行
 
 先在项目根目录安装 CLI，再用一个命令启动后台服务和浏览器：
 
@@ -108,7 +112,23 @@ chatpymol apply --session prj_... --base-version v000017_... \
 
 ### CLI-first：用本地 stdio 启动 MCP
 
-Codex 插件默认启动 `chatpymol mcp --local`：若后台未运行会自动启动本机私有服务，并读取受保护的本地凭据。没有插件 hooks 时也可手工注册：
+`chatpymol mcp --local` 是平台无关入口：若后台未运行会自动启动本机私有服务，并读取受保护的本地凭据。概念配置如下，实际字段位置以客户端当前版本为准：
+
+```json
+{
+  "mcpServers": {
+    "chatpymol": {
+      "command": "chatpymol",
+      "args": ["mcp", "--local"],
+      "env": { "CHATPYMOL_SOURCE": "你的-agent-名称" }
+    }
+  }
+}
+```
+
+Trae、WorkBuddy 或其他支持本地 stdio MCP 的 Agent 可以使用其设置页或配置文件注册上述服务。没有平台级会话 hooks 时，Agent 应先调用 `list_sessions`/`create_session` 明确选择当前 Session，并在后续写入中持续使用同一个 `sessionId`。
+
+已有专用适配器的客户端也可以使用各自命令注册：
 
 Codex：
 

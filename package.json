@@ -1,7 +1,7 @@
 {
   "name": "chatpymol",
   "version": "0.2.0",
-  "description": "AI-human collaborative, versioned PyMOL workspace for the browser, CLI, Codex, and Claude Code.",
+  "description": "AI-human collaborative, versioned PyMOL workspace for browsers, CLI, MCP, and local AI agents.",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -19,6 +19,7 @@
     "webassembly",
     "pml",
     "mcp",
+    "local-agents",
     "codex",
     "claude-code",
     "ai-collaboration"

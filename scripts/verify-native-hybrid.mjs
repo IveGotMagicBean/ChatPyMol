@@ -22,6 +22,7 @@ await context.addInitScript(({ deviceToken }) => {
   localStorage.setItem("chatpymol.device-token.v1", deviceToken);
   localStorage.setItem("chatpymol.theme", "light");
   localStorage.setItem("chatpymol.language", "zh");
+  localStorage.setItem("chatpymol.onboarding.v1", "seen");
   // Simulate preferences left by the earlier UI. The current UI must migrate
   // both values so the sequence and classic controls are actually legible.
   localStorage.setItem("chatpymol.sequence-view", "off");
@@ -40,23 +41,23 @@ page.on("requestfailed", (request) => {
 
 await page.goto("http://127.0.0.1:8787", { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "新建对话" }).waitFor();
-await page.getByRole("button", { name: "在 Codex 中使用" }).click();
-const codexDialog = page.getByRole("dialog", {
-  name: "在 Codex 中使用 ChatPyMOL"
+await page.getByRole("button", { name: "本地 Agent 协作" }).click();
+const localAgentDialog = page.getByRole("dialog", {
+  name: "在本地 Agent 中使用 ChatPyMOL"
 });
-await codexDialog.waitFor();
-await codexDialog
-  .getByText(/请帮我安装并连接 ChatPyMOL 的 Codex 插件/)
+await localAgentDialog.waitFor();
+await localAgentDialog
+  .getByText(/请帮我在本机安装并连接 ChatPyMOL/)
   .waitFor();
 if (
-  (await codexDialog.getByRole("link", { name: "查看完整接入指南" })
+  (await localAgentDialog.getByRole("link", { name: "查看本地接入指南" })
     .getAttribute("href")) !==
   "https://github.com/IveGotMagicBean/ChatPyMol/blob/main/docs/cli-codex-claude.zh-CN.md"
 ) {
-  throw new Error("The Codex setup guide link is incorrect");
+  throw new Error("The local-agent setup guide link is incorrect");
 }
 await page.keyboard.press("Escape");
-await codexDialog.waitFor({ state: "detached" });
+await localAgentDialog.waitFor({ state: "detached" });
 await page.locator('input[type="file"]').setInputFiles(
   path.join(root, "scripts/fixtures/mini.pdb")
 );

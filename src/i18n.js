@@ -18,12 +18,53 @@ const EN = {
   "复制": "Copy",
   "已复制": "Copied",
   "复制失败": "Copy failed",
-  "在 Codex 中使用": "Use with Codex",
-  "在 Codex 中使用 ChatPyMOL": "Use ChatPyMOL with Codex",
-  "复制下面的 Prompt 给 Codex，它会在本机完成 CLI、插件、MCP 与私有工作区设置。":
-    "Copy this prompt into Codex to set up the CLI, plugin, MCP, and private local workspace.",
-  "查看完整接入指南": "View the full setup guide",
-  "复制安装 Prompt": "Copy setup prompt",
+  "本地 Agent 协作": "Local agent collaboration",
+  "在本地 Agent 中使用 ChatPyMOL": "Use ChatPyMOL with a local agent",
+  "把下面的 Prompt 交给当前 Agent，它会在本机配置 CLI、MCP 与私有工作区。":
+    "Give this prompt to your current agent to configure the CLI, MCP, and a private local workspace.",
+  "查看本地接入指南": "View local setup guide",
+  "复制通用安装 Prompt": "Copy universal setup prompt",
+  "新手指引": "Getting started",
+  "欢迎来到 ChatPyMOL": "Welcome to ChatPyMOL",
+  "用自然语言和 PyMOL 原生工具共同维护一个可回溯的分子场景。":
+    "Use natural language and native PyMOL tools to maintain one traceable molecular scene.",
+  "AI 修改": "AI edits",
+  "人工编辑": "Manual editing",
+  "版本与导出": "Versions & export",
+  "观看演示": "Watch demos",
+  "开始页面引导": "Start guided tour",
+  "稍后再看": "Maybe later",
+  "通过一段真实操作，快速了解网页协作流程。":
+    "Two real workflows introduce browser collaboration and local agents.",
+  "聊天与人工协作": "Chat and manual collaboration",
+  "从空白对话开始，让 AI 载入、修改结构，再用 PyMOL 原生工具继续编辑。":
+    "Start from a blank chat, let AI load and edit a structure, then continue with native PyMOL tools.",
+  "把已有的 Codex 或本地 Agent 会话连接到私有工作区，修改会实时出现在浏览器。":
+    "Connect an existing Codex or local agent conversation to a private workspace and see updates in the browser.",
+  "约 1 分钟": "About 1 minute",
+  "约 40 秒": "About 40 seconds",
+  "教程视频": "Tutorial videos",
+  "重播页面引导": "Replay guided tour",
+  "第一步": "First step",
+  "为每个课题新建独立对话": "Create a separate chat for each project",
+  "一个对话就是一个可追溯工作区，可以包含多个蛋白、核酸和配体。":
+    "Each chat is a traceable workspace that can contain multiple proteins, nucleic acids, and ligands.",
+  "自然语言": "Natural language",
+  "描述你想看到的结构": "Describe the structure you want to see",
+  "直接输入 PDB ID 和修改要求，也可以从回形针上传 PDB 或 mmCIF。":
+    "Enter a PDB ID and your request, or upload a PDB or mmCIF with the paperclip.",
+  "人工协作": "Manual collaboration",
+  "在右侧继续用 PyMOL 编辑": "Continue editing with PyMOL on the right",
+  "右侧会随所选版本同步渲染；原生工具继续负责选择、表示、颜色、标签和测距，结果可随时导出。":
+    "The right side follows the selected version. Native tools remain available for selections, representations, colors, labels, and measurements, and the result can be exported at any time.",
+  "本机私有": "Private and local",
+  "也可以连接本地 AI Agent": "Connect a local AI agent too",
+  "通过 CLI 与 MCP 接入 Codex、Claude Code 或其他支持本地 MCP 的 Agent。":
+    "Connect Codex, Claude Code, or another local MCP-capable agent through the CLI and MCP.",
+  "跳过": "Skip",
+  "上一步": "Previous step",
+  "下一步": "Next",
+  "完成": "Done",
   "Prompt 已复制": "Prompt copied",
   "AI 与人工协作的分子可视化工作台":
     "An AI-human workspace for molecular visualization",

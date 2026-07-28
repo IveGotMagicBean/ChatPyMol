@@ -169,7 +169,7 @@ export async function startLocalServer(options = {}) {
     await writeJsonAtomic(paths.stateFile, state, 0o600);
 
     let health = null;
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
       health = await fetchHealth(baseUrl);
       if (
         health?.ok &&
@@ -179,14 +179,15 @@ export async function startLocalServer(options = {}) {
         break;
       }
       if (!isPidAlive(child.pid)) break;
-      await delay(100);
+      await delay(250);
     }
     if (
       !health?.ok ||
       health.localMode !== true ||
       health.instanceId !== instanceId
     ) {
-      if (!isPidAlive(child.pid)) await safeUnlink(paths.stateFile);
+      if (isPidAlive(child.pid)) process.kill(child.pid, "SIGTERM");
+      await safeUnlink(paths.stateFile);
       const tail = await readLogTail(paths.logFile);
       throw new Error(
         `本地 ChatPyMOL 启动失败。日志：${paths.logFile}${tail ? `\n${tail}` : ""}`

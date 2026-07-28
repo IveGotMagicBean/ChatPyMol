@@ -4,6 +4,7 @@ import { AppClean } from "./AppClean";
 import { SharedConversation } from "./SharedConversation";
 import "./simple.css";
 import "./clean.css";
+import "./onboarding.css";
 
 const shareMatch = window.location.pathname.match(
   /^\/share\/(shr_[a-f0-9]{48})\/?$/

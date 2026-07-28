@@ -2,6 +2,7 @@ import {
   Bot,
   Check,
   ChevronRight,
+  CircleHelp,
   Copy,
   FileBox,
   Github,
@@ -32,6 +33,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiClient, getDeviceToken } from "./api";
 import { NativePyMOLViewer } from "./components/NativePyMOLViewer";
+import {
+  ONBOARDING_STORAGE_KEY,
+  OnboardingDialog,
+  SpotlightTour
+} from "./components/OnboardingGuide";
 import { createTranslator } from "./i18n";
 import { rebaseNativePmlDraft } from "./pml-rebase";
 
@@ -39,9 +45,9 @@ const GITHUB_URL = "https://github.com/IveGotMagicBean/ChatPyMol";
 const ISSUE_URL =
   "https://github.com/IveGotMagicBean/ChatPyMol/issues/new?template=suggestion.yml";
 const EMAIL_URL = "mailto:542058929@qq.com";
-const CODEX_GUIDE_URL =
+const LOCAL_AGENT_GUIDE_URL =
   "https://github.com/IveGotMagicBean/ChatPyMol/blob/main/docs/cli-codex-claude.zh-CN.md";
-const CODEX_INSTALL_PROMPT_ZH = `请帮我安装并连接 ChatPyMOL 的 Codex 插件。
+const LOCAL_AGENT_INSTALL_PROMPT_ZH = `请帮我在本机安装并连接 ChatPyMOL，让当前本地 AI Agent 通过 MCP 与浏览器中的 PyMOL 协作。
 
 项目仓库：https://github.com/IveGotMagicBean/ChatPyMol
 
@@ -49,14 +55,14 @@ const CODEX_INSTALL_PROMPT_ZH = `请帮我安装并连接 ChatPyMOL 的 Codex �
 1. 在安全的本地目录克隆或更新仓库，并确认 Node.js 版本不低于 22；
 2. 在仓库根目录运行 npm ci --ignore-scripts、npm run build 和 npm install -g .；
 3. 若仓库根目录已有我填写的 .env，运行 chatpymol local start --open --env-file "$PWD/.env"；否则运行 chatpymol local start --open。确认服务只绑定 127.0.0.1，不要改成 0.0.0.0；
-4. 在仓库根目录运行 codex plugin marketplace add "$PWD/integrations/codex" 和 codex plugin add chatpymol@chatpymol-local；不要修改外部个人 marketplace 文件；
-5. 使用 chatpymol local status、codex plugin list 和 codex mcp list 验证安装结果；
-6. 完成后提醒我重启 Codex，在新会话中用 /hooks 审查并信任 ChatPyMOL hooks，再用 /mcp 确认连接。
+4. 检查当前 Agent 配置本地 stdio MCP 的方式，注册一个名为 chatpymol 的服务：command 为 chatpymol，args 为 ["mcp", "--local"]，并把 CHATPYMOL_SOURCE 设为当前 Agent 名称；
+5. 如果当前环境是 Codex，优先使用 integrations/codex 中的插件与会话 hooks；如果是 Claude Code，使用 integrations/claude 中的适配器；Trae、WorkBuddy 或其他 Agent 则使用它们自己的 MCP 配置入口；
+6. 使用 chatpymol local status 和当前 Agent 的 MCP 状态页验证连接，再调用 get_session 与 get_browser_link，确认浏览器能打开当前工作区。
 
-一个 Codex 主会话必须绑定一个本地 ChatPyMOL Session，/resume 复用原绑定。禁止读取 transcript_path 或同步整段对话；只保存 ChatPyMOL 工具操作和明确分子请求的主题摘要。
+每个 Agent 主会话应绑定或明确选择一个 ChatPyMOL Session；有稳定会话 hooks 时复用原绑定，没有时由工具显式创建或选择。不要同步整段私密对话，只保存 ChatPyMOL 工具操作和明确分子请求的主题摘要。
 
 不要询问 ChatPyMOL 服务地址。不要修改任何蛋白场景，除非我随后明确提出修改要求。`;
-const CODEX_INSTALL_PROMPT_EN = `Help me install and connect the ChatPyMOL plugin for Codex.
+const LOCAL_AGENT_INSTALL_PROMPT_EN = `Set up ChatPyMOL locally so this AI agent can collaborate with browser PyMOL through MCP.
 
 Repository: https://github.com/IveGotMagicBean/ChatPyMol
 
@@ -64,11 +70,11 @@ Read docs/cli-codex-claude.zh-CN.md in the repository first, then:
 1. Clone or update the repository in a safe local directory and verify Node.js 22 or newer;
 2. From the repository root, run npm ci --ignore-scripts, npm run build, and npm install -g .;
 3. If the repository already has my completed .env, run chatpymol local start --open --env-file "$PWD/.env"; otherwise run chatpymol local start --open. Verify that it binds only to 127.0.0.1, never 0.0.0.0;
-4. From the repository root, run codex plugin marketplace add "$PWD/integrations/codex" and codex plugin add chatpymol@chatpymol-local. Do not edit any external personal marketplace file;
-5. Verify the setup with chatpymol local status, codex plugin list, and codex mcp list;
-6. Remind me to restart Codex, review and trust the ChatPyMOL hooks with /hooks, then confirm the connection with /mcp.
+4. Inspect how this agent configures a local stdio MCP server. Register one named chatpymol with command chatpymol, args ["mcp", "--local"], and CHATPYMOL_SOURCE set to this agent's name;
+5. For Codex, prefer the plugin and session hooks under integrations/codex. For Claude Code, use integrations/claude. For Trae, WorkBuddy, or another agent, use that product's own MCP configuration entry;
+6. Verify with chatpymol local status and this agent's MCP status view, then call get_session and get_browser_link to confirm the browser opens the current workspace.
 
-Bind one private local ChatPyMOL Session per Codex main session and reuse it after /resume. Never read transcript_path or sync full conversations; persist only ChatPyMOL tool operations and topic-only summaries of explicit molecular requests.
+Bind or explicitly select one ChatPyMOL Session per agent conversation. Reuse stable session bindings when the agent exposes hooks; otherwise create or select the session through tools. Never sync full private conversations; persist only ChatPyMOL tool operations and topic-only summaries of explicit molecular requests.
 
 Do not ask for a ChatPyMOL service URL. Do not modify any molecular scene unless I explicitly ask afterward.`;
 const CONVERSATION_MENU_WIDTH = 145;
@@ -124,10 +130,14 @@ export function AppClean() {
   const [titleDraft, setTitleDraft] = useState("");
   const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
   const [emailCopyStatus, setEmailCopyStatus] = useState("idle");
-  const [codexDialogOpen, setCodexDialogOpen] = useState(false);
-  const [codexCopyStatus, setCodexCopyStatus] = useState("idle");
+  const [localAgentDialogOpen, setLocalAgentDialogOpen] = useState(false);
+  const [localAgentCopyStatus, setLocalAgentCopyStatus] = useState("idle");
   const [shareDialog, setShareDialog] = useState(null);
   const [shareCopyStatus, setShareCopyStatus] = useState("idle");
+  const [onboardingMode, setOnboardingMode] = useState(() =>
+    localStorage.getItem(ONBOARDING_STORAGE_KEY) ? null : "welcome"
+  );
+  const [tourStep, setTourStep] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const renderTimerRef = useRef(null);
@@ -152,11 +162,41 @@ export function AppClean() {
   const emailTriggerRef = useRef(null);
   const emailCopyButtonRef = useRef(null);
   const emailCopyTimerRef = useRef(null);
-  const codexCopyButtonRef = useRef(null);
-  const codexCopyTimerRef = useRef(null);
+  const localAgentCopyButtonRef = useRef(null);
+  const localAgentCopyTimerRef = useRef(null);
   const t = useMemo(() => createTranslator(language), [language]);
-  const codexInstallPrompt =
-    language === "en" ? CODEX_INSTALL_PROMPT_EN : CODEX_INSTALL_PROMPT_ZH;
+  const localAgentInstallPrompt =
+    language === "en" ? LOCAL_AGENT_INSTALL_PROMPT_EN : LOCAL_AGENT_INSTALL_PROMPT_ZH;
+  const markOnboardingSeen = useCallback(() => {
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, "seen");
+  }, []);
+  const closeOnboarding = useCallback(() => {
+    markOnboardingSeen();
+    setOnboardingMode(null);
+  }, [markOnboardingSeen]);
+  const startOnboardingTour = useCallback(() => {
+    setOnboardingMode(null);
+    setLeftCollapsed(false);
+    setRightCollapsed(false);
+    setTourStep(0);
+  }, []);
+  const finishOnboardingTour = useCallback(() => {
+    markOnboardingSeen();
+    setTourStep(null);
+  }, [markOnboardingSeen]);
+  const advanceOnboardingTour = useCallback(() => {
+    setTourStep((current) => {
+      if (current === null || current >= 3) {
+        markOnboardingSeen();
+        return null;
+      }
+      return current + 1;
+    });
+  }, [markOnboardingSeen]);
+  const returnOnboardingTour = useCallback(() => {
+    setTourStep((current) => Math.max(0, (current || 0) - 1));
+  }, []);
+
   function toggleConversationMenu(conversationId, event) {
     if (menuId === conversationId) {
       setMenuId(null);
@@ -414,30 +454,30 @@ export function AppClean() {
   }, [emailPopoverOpen]);
 
   useEffect(() => {
-    if (!codexDialogOpen) return undefined;
+    if (!localAgentDialogOpen) return undefined;
 
     const closeOnEscape = (event) => {
       if (event.key !== "Escape") return;
-      setCodexDialogOpen(false);
-      setCodexCopyStatus("idle");
+      setLocalAgentDialogOpen(false);
+      setLocalAgentCopyStatus("idle");
     };
 
     document.addEventListener("keydown", closeOnEscape);
     const focusFrame = window.requestAnimationFrame(() => {
-      codexCopyButtonRef.current?.focus();
+      localAgentCopyButtonRef.current?.focus();
     });
     return () => {
       document.removeEventListener("keydown", closeOnEscape);
       window.cancelAnimationFrame(focusFrame);
     };
-  }, [codexDialogOpen]);
+  }, [localAgentDialogOpen]);
 
   useEffect(
     () => () => {
       window.clearTimeout(renderTimerRef.current);
       window.clearTimeout(autoSaveTimerRef.current);
       window.clearTimeout(emailCopyTimerRef.current);
-      window.clearTimeout(codexCopyTimerRef.current);
+      window.clearTimeout(localAgentCopyTimerRef.current);
     },
     []
   );
@@ -451,12 +491,12 @@ export function AppClean() {
     }, 2200);
   }
 
-  async function copyCodexPrompt() {
-    const copied = await copyTextToClipboard(codexInstallPrompt);
-    setCodexCopyStatus(copied ? "copied" : "failed");
-    window.clearTimeout(codexCopyTimerRef.current);
-    codexCopyTimerRef.current = window.setTimeout(() => {
-      setCodexCopyStatus("idle");
+  async function copyLocalAgentPrompt() {
+    const copied = await copyTextToClipboard(localAgentInstallPrompt);
+    setLocalAgentCopyStatus(copied ? "copied" : "failed");
+    window.clearTimeout(localAgentCopyTimerRef.current);
+    localAgentCopyTimerRef.current = window.setTimeout(() => {
+      setLocalAgentCopyStatus("idle");
     }, 2200);
   }
 
@@ -1328,11 +1368,25 @@ export function AppClean() {
         </div>
         <div className="clean-nav-actions">
           <button
+            data-tour="workspace"
             className={`icon-button ${rightCollapsed ? "" : "active"}`}
             onClick={() => setRightCollapsed((value) => !value)}
             aria-label={t(rightCollapsed ? "打开工作区" : "关闭工作区")}
           >
             <PanelRight size={17} />
+          </button>
+          <button
+            data-tour="guide"
+            type="button"
+            className={`icon-button ${onboardingMode === "videos" ? "active" : ""}`}
+            onClick={() => {
+              markOnboardingSeen();
+              setOnboardingMode("videos");
+            }}
+            aria-label={t("新手指引")}
+            title={t("新手指引")}
+          >
+            <CircleHelp size={17} />
           </button>
           <a
             className="icon-button"
@@ -1442,6 +1496,7 @@ export function AppClean() {
         {!leftCollapsed && (
           <aside className="clean-sidebar" style={{ width: leftWidth }}>
             <button
+              data-tour="new-chat"
               className="clean-new-chat"
               onClick={newConversation}
               disabled={Boolean(busy)}
@@ -1514,16 +1569,17 @@ export function AppClean() {
               ))}
             </div>
             <button
+              data-tour="local-agent"
               type="button"
               className="clean-codex-entry"
               onClick={() => {
-                setCodexDialogOpen(true);
-                setCodexCopyStatus("idle");
+                setLocalAgentDialogOpen(true);
+                setLocalAgentCopyStatus("idle");
               }}
               aria-haspopup="dialog"
             >
               <SquareTerminal size={16} />
-              <span>{t("在 Codex 中使用")}</span>
+              <span>{t("本地 Agent 协作")}</span>
               <ChevronRight size={14} />
             </button>
           </aside>
@@ -1658,7 +1714,7 @@ export function AppClean() {
                 ))}
               </div>
             )}
-            <form className="clean-composer" onSubmit={sendMessage}>
+            <form data-tour="composer" className="clean-composer" onSubmit={sendMessage}>
               <textarea
                 value={chatInput}
                 onChange={(event) => setChatInput(event.target.value)}
@@ -1710,6 +1766,7 @@ export function AppClean() {
         )}
 
         <aside
+          data-tour="workspace-panel"
           className={`clean-right-panel ${
             rightCollapsed ? "is-collapsed" : ""
           }`}
@@ -1990,33 +2047,33 @@ export function AppClean() {
           </div>,
           document.body
         )}
-      {codexDialogOpen &&
+      {localAgentDialogOpen &&
         createPortal(
           <div
             className="clean-dialog-backdrop"
             onPointerDown={(event) => {
               if (event.target !== event.currentTarget) return;
-              setCodexDialogOpen(false);
-              setCodexCopyStatus("idle");
+              setLocalAgentDialogOpen(false);
+              setLocalAgentCopyStatus("idle");
             }}
           >
             <section
               className="clean-codex-dialog"
               role="dialog"
               aria-modal="true"
-              aria-labelledby="chatpymol-codex-title"
+              aria-labelledby="chatpymol-local-agent-title"
             >
               <div className="clean-codex-dialog-heading">
                 <span className="clean-codex-dialog-icon">
                   <SquareTerminal size={18} />
                 </span>
                 <div>
-                  <h2 id="chatpymol-codex-title">
-                    {t("在 Codex 中使用 ChatPyMOL")}
+                  <h2 id="chatpymol-local-agent-title">
+                    {t("在本地 Agent 中使用 ChatPyMOL")}
                   </h2>
                   <p>
                     {t(
-                      "复制下面的 Prompt 给 Codex，它会在本机完成 CLI、插件、MCP 与私有工作区设置。"
+                      "把下面的 Prompt 交给当前 Agent，它会在本机配置 CLI、MCP 与私有工作区。"
                     )}
                   </p>
                 </div>
@@ -2024,40 +2081,40 @@ export function AppClean() {
                   type="button"
                   className="clean-codex-close"
                   onClick={() => {
-                    setCodexDialogOpen(false);
-                    setCodexCopyStatus("idle");
+                    setLocalAgentDialogOpen(false);
+                    setLocalAgentCopyStatus("idle");
                   }}
                   aria-label={t("关闭")}
                 >
                   <X size={16} />
                 </button>
               </div>
-              <pre className="clean-codex-prompt">{codexInstallPrompt}</pre>
+              <pre className="clean-codex-prompt">{localAgentInstallPrompt}</pre>
               <div className="clean-codex-actions">
                 <a
-                  href={CODEX_GUIDE_URL}
+                  href={LOCAL_AGENT_GUIDE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {t("查看完整接入指南")}
+                  {t("查看本地接入指南")}
                 </a>
                 <button
-                  ref={codexCopyButtonRef}
+                  ref={localAgentCopyButtonRef}
                   type="button"
-                  className={`clean-codex-copy ${codexCopyStatus}`}
-                  onClick={copyCodexPrompt}
+                  className={`clean-codex-copy ${localAgentCopyStatus}`}
+                  onClick={copyLocalAgentPrompt}
                 >
-                  {codexCopyStatus === "copied" ? (
+                  {localAgentCopyStatus === "copied" ? (
                     <Check size={15} />
                   ) : (
                     <Copy size={15} />
                   )}
                   <span aria-live="polite">
-                    {codexCopyStatus === "copied"
+                    {localAgentCopyStatus === "copied"
                       ? t("Prompt 已复制")
-                      : codexCopyStatus === "failed"
+                      : localAgentCopyStatus === "failed"
                         ? t("复制失败")
-                        : t("复制安装 Prompt")}
+                        : t("复制通用安装 Prompt")}
                   </span>
                 </button>
               </div>
@@ -2065,6 +2122,25 @@ export function AppClean() {
           </div>,
           document.body
         )}
+      <OnboardingDialog
+        mode={onboardingMode}
+        t={t}
+        onClose={closeOnboarding}
+        onStartTour={startOnboardingTour}
+        onOpenVideos={() => {
+          markOnboardingSeen();
+          setOnboardingMode("videos");
+        }}
+      />
+      {tourStep !== null && (
+        <SpotlightTour
+          stepIndex={tourStep}
+          t={t}
+          onBack={returnOnboardingTour}
+          onNext={advanceOnboardingTour}
+          onSkip={finishOnboardingTour}
+        />
+      )}
     </div>
   );
 }

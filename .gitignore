@@ -33,6 +33,7 @@ pnpm-debug.log*
 *.pid
 .tmp/
 tmp/
+.edgeone/
 
 # Editor and operating-system files
 .DS_Store
