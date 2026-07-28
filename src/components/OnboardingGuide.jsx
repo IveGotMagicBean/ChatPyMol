@@ -342,12 +342,37 @@ function getMaskStyles(rect) {
 }
 
 function getPopoverStyle(rect) {
-  const width = 330;
+  const margin = 14;
+  const width = Math.min(330, window.innerWidth - margin * 2);
+  const height = Math.min(230, window.innerHeight - margin * 2);
   if (!rect) {
     return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
   }
-  const left = Math.max(14, Math.min(window.innerWidth - width - 14, rect.left));
+
+  const roomRight = window.innerWidth - rect.right;
+  const roomLeft = rect.left;
+  let left;
+  if (roomRight >= width + margin) {
+    left = rect.right + margin;
+  } else if (roomLeft >= width + margin) {
+    left = rect.left - width - margin;
+  } else {
+    left = Math.max(margin, Math.min(window.innerWidth - width - margin, rect.left));
+  }
+
   const roomBelow = window.innerHeight - rect.bottom;
-  if (roomBelow >= 240) return { top: rect.bottom + 14, left };
-  return { bottom: window.innerHeight - rect.top + 14, left };
+  const roomAbove = rect.top;
+  let top;
+  if (roomBelow >= height + margin) {
+    top = rect.bottom + margin;
+  } else if (roomAbove >= height + margin) {
+    top = rect.top - height - margin;
+  } else {
+    top = Math.max(
+      margin,
+      Math.min(window.innerHeight - height - margin, rect.top + margin)
+    );
+  }
+
+  return { top, left, transform: "none" };
 }
