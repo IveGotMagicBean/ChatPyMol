@@ -265,6 +265,21 @@ body,
   padding: 0;
 }
 
+.nav-guide-button {
+  width: auto;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 58%, transparent);
+  color: var(--accent-text);
+}
+
+.nav-guide-label {
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .language-clean {
   gap: 5px;
   padding: 0 8px;
@@ -1590,6 +1605,17 @@ body.is-resizing {
 
   .clean-chat-column {
     min-width: 330px;
+  }
+}
+
+@media (max-width: 720px) {
+  .nav-guide-button {
+    width: 32px;
+    padding: 0;
+  }
+
+  .nav-guide-label {
+    display: none;
   }
 }
 .clean-viewer-wrap.is-hidden,

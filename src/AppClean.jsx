@@ -1378,7 +1378,7 @@ export function AppClean() {
           <button
             data-tour="guide"
             type="button"
-            className={`icon-button ${onboardingMode === "videos" ? "active" : ""}`}
+            className={`icon-button nav-guide-button ${onboardingMode === "videos" ? "active" : ""}`}
             onClick={() => {
               markOnboardingSeen();
               setOnboardingMode("videos");
@@ -1387,6 +1387,7 @@ export function AppClean() {
             title={t("新手指引")}
           >
             <CircleHelp size={17} />
+            <span className="nav-guide-label">{t("新手指引")}</span>
           </button>
           <a
             className="icon-button"
