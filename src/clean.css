@@ -1980,3 +1980,139 @@ body.is-resizing {
     flex-direction: column;
   }
 }
+
+.github-star-bubble {
+  position: fixed;
+  z-index: 2990;
+  right: 16px;
+  bottom: 18px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #ffb84d 55%, var(--line));
+  border-radius: 50%;
+  background: var(--panel);
+  color: #e59a19;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.github-star-bubble:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.26);
+}
+
+.github-star-prompt {
+  position: fixed;
+  z-index: 3000;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  width: min(340px, calc(100vw - 24px));
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 11px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+
+.github-star-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--quiet);
+  cursor: pointer;
+}
+
+.github-star-close:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.github-star-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #ffd966, #ffb84d);
+  color: #7a4900;
+  box-shadow: 0 9px 24px rgba(255, 184, 77, 0.26);
+}
+
+.github-star-copy {
+  min-width: 0;
+  padding-right: 20px;
+}
+
+.github-star-copy strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.github-star-copy p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.github-star-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.github-star-actions button,
+.github-star-actions a {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.github-star-actions button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--quiet);
+}
+
+.github-star-actions a {
+  border: 0;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+@media (max-width: 560px) {
+  .github-star-bubble {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .github-star-prompt {
+    right: 12px;
+    bottom: 12px;
+  }
+}

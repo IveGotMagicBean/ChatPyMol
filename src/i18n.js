@@ -25,6 +25,12 @@ const EN = {
   "查看本地接入指南": "View local setup guide",
   "复制通用安装 Prompt": "Copy universal setup prompt",
   "新手指引": "Getting started",
+  "喜欢 ChatPyMOL 吗？": "Enjoying ChatPyMOL?",
+  "如果它对你有一点帮助，欢迎去 GitHub 点个 Star，支持我们继续完善。":
+    "If ChatPyMOL helps you, please consider starring it on GitHub and supporting its continued improvement.",
+  "知道了": "Got it",
+  "去 GitHub 点 Star": "Star on GitHub",
+  "支持我们，点个 Star": "Support us with a Star",
   "欢迎来到 ChatPyMOL": "Welcome to ChatPyMOL",
   "用自然语言和 PyMOL 原生工具共同维护一个可回溯的分子场景。":
     "Use natural language and native PyMOL tools to maintain one traceable molecular scene.",

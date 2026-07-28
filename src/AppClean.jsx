@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Sun,
   SquareTerminal,
+  Star,
   Trash2,
   X
 } from "lucide-react";
@@ -45,6 +46,7 @@ const GITHUB_URL = "https://github.com/IveGotMagicBean/ChatPyMol";
 const ISSUE_URL =
   "https://github.com/IveGotMagicBean/ChatPyMol/issues/new?template=suggestion.yml";
 const EMAIL_URL = "mailto:542058929@qq.com";
+const STAR_PROMPT_STORAGE_KEY = "chatpymol.github-star-prompt.v1";
 const LOCAL_AGENT_GUIDE_URL =
   "https://github.com/IveGotMagicBean/ChatPyMol/blob/main/docs/cli-codex-claude.zh-CN.md";
 const LOCAL_AGENT_INSTALL_PROMPT_ZH = `请帮我在本机安装并连接 ChatPyMOL，让当前本地 AI Agent 通过 MCP 与浏览器中的 PyMOL 协作。
@@ -138,6 +140,7 @@ export function AppClean() {
     localStorage.getItem(ONBOARDING_STORAGE_KEY) ? null : "welcome"
   );
   const [tourStep, setTourStep] = useState(null);
+  const [starPromptOpen, setStarPromptOpen] = useState(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const renderTimerRef = useRef(null);
@@ -165,8 +168,30 @@ export function AppClean() {
   const localAgentCopyButtonRef = useRef(null);
   const localAgentCopyTimerRef = useRef(null);
   const t = useMemo(() => createTranslator(language), [language]);
+  const publicWebsite = useMemo(
+    () => ["chatpymol.com", "www.chatpymol.com"].includes(window.location.hostname.toLowerCase()),
+    []
+  );
   const localAgentInstallPrompt =
     language === "en" ? LOCAL_AGENT_INSTALL_PROMPT_EN : LOCAL_AGENT_INSTALL_PROMPT_ZH;
+  const dismissStarPrompt = useCallback(() => {
+    localStorage.setItem(STAR_PROMPT_STORAGE_KEY, "seen");
+    setStarPromptOpen(false);
+  }, []);
+  useEffect(() => {
+    if (
+      !publicWebsite ||
+      starPromptOpen ||
+      localStorage.getItem(STAR_PROMPT_STORAGE_KEY) ||
+      onboardingMode ||
+      tourStep !== null
+    ) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setStarPromptOpen(true), 1600);
+    return () => window.clearTimeout(timer);
+  }, [onboardingMode, publicWebsite, starPromptOpen, tourStep]);
+
   const markOnboardingSeen = useCallback(() => {
     localStorage.setItem(ONBOARDING_STORAGE_KEY, "seen");
   }, []);
@@ -2123,6 +2148,60 @@ export function AppClean() {
           </div>,
           document.body
         )}
+      {publicWebsite && !starPromptOpen &&
+        createPortal(
+          <button
+            type="button"
+            className="github-star-bubble"
+            onClick={() => setStarPromptOpen(true)}
+            aria-label={t("支持我们，点个 Star")}
+            title={t("支持我们，点个 Star")}
+          >
+            <Star size={19} fill="currentColor" />
+          </button>,
+          document.body
+        )}
+
+      {starPromptOpen &&
+        createPortal(
+          <section
+            className="github-star-prompt"
+            role="dialog"
+            aria-labelledby="github-star-title"
+          >
+            <button
+              type="button"
+              className="github-star-close"
+              onClick={dismissStarPrompt}
+              aria-label={t("关闭")}
+            >
+              <X size={15} />
+            </button>
+            <div className="github-star-icon" aria-hidden="true">
+              <Star size={20} fill="currentColor" />
+            </div>
+            <div className="github-star-copy">
+              <strong id="github-star-title">{t("喜欢 ChatPyMOL 吗？")}</strong>
+              <p>{t("如果它对你有一点帮助，欢迎去 GitHub 点个 Star，支持我们继续完善。")}</p>
+            </div>
+            <div className="github-star-actions">
+              <button type="button" onClick={dismissStarPrompt}>
+                {t("知道了")}
+              </button>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={dismissStarPrompt}
+              >
+                <Github size={15} />
+                {t("去 GitHub 点 Star")}
+              </a>
+            </div>
+          </section>,
+          document.body
+        )}
+
       <OnboardingDialog
         mode={onboardingMode}
         t={t}
