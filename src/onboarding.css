@@ -179,6 +179,7 @@
 .onboarding-library {
   display: flex;
   width: min(1180px, calc(100vw - 36px));
+  height: min(760px, calc(100vh - 42px));
   max-height: calc(100vh - 42px);
   flex-direction: column;
   border-radius: 20px;
@@ -275,13 +276,14 @@
 
 .onboarding-video-stage {
   position: relative;
+  flex: 1 1 auto;
   min-height: 0;
   margin: 0 19px;
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: #07101d;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: auto;
 }
 
 .onboarding-video-stage video {
@@ -359,6 +361,8 @@
   background: var(--panel);
   color: var(--text);
   box-shadow: 0 20px 65px rgba(0, 0, 0, 0.32);
+  max-height: min(300px, calc(100vh - 28px));
+  overflow-y: auto;
   pointer-events: auto;
 }
 
@@ -473,6 +477,7 @@
 
   .onboarding-library {
     width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
     max-height: calc(100vh - 20px);
   }
 

@@ -3,7 +3,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
-  FileUp,
   MonitorPlay,
   MousePointer2,
   Play,
@@ -140,13 +139,8 @@ export function OnboardingDialog({
           </div>
           <h2 id="chatpymol-welcome-title">{t("欢迎来到 ChatPyMOL")}</h2>
           <p className="onboarding-lead">
-            {t("用自然语言和 PyMOL 原生工具共同维护一个可回溯的分子场景。")}
+            {t("用自然语言和 PyMOL 一起编辑结构。")}
           </p>
-          <div className="onboarding-feature-row">
-            <span><Bot size={16} />{t("AI 修改")}</span>
-            <span><MousePointer2 size={16} />{t("人工编辑")}</span>
-            <span><FileUp size={16} />{t("版本与导出")}</span>
-          </div>
           <div className="onboarding-welcome-actions">
             <button type="button" className="onboarding-quiet" onClick={onOpenVideos}>
               <Play size={15} />

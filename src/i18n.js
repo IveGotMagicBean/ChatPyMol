@@ -28,6 +28,7 @@ const EN = {
   "欢迎来到 ChatPyMOL": "Welcome to ChatPyMOL",
   "用自然语言和 PyMOL 原生工具共同维护一个可回溯的分子场景。":
     "Use natural language and native PyMOL tools to maintain one traceable molecular scene.",
+  "用自然语言和 PyMOL 一起编辑结构。": "Edit structures with natural language and PyMOL.",
   "AI 修改": "AI edits",
   "人工编辑": "Manual editing",
   "版本与导出": "Versions & export",
@@ -35,7 +36,7 @@ const EN = {
   "开始页面引导": "Start guided tour",
   "稍后再看": "Maybe later",
   "通过一段真实操作，快速了解网页协作流程。":
-    "Two real workflows introduce browser collaboration and local agents.",
+    "One real workflow introduces browser collaboration.",
   "聊天与人工协作": "Chat and manual collaboration",
   "从空白对话开始，让 AI 载入、修改结构，再用 PyMOL 原生工具继续编辑。":
     "Start from a blank chat, let AI load and edit a structure, then continue with native PyMOL tools.",
